@@ -32,7 +32,7 @@ int main(int argc , char *argv[])
 
    while(1)
     {
-        printf("Enter message : ");
+/*        printf("Enter message : ");
         scanf("%s" , message);
 
         //Send some data
@@ -41,14 +41,14 @@ int main(int argc , char *argv[])
             puts("Send failed");
             return 1;
         }
-
+*/
         //Receive a reply from the server
         if( recv(sock , server_reply , 2000 , 0) < 0)
         {
             puts("recv failed");
             break;
         }
-        puts("Server reply :");
+        puts("Server reply : ");
         puts(server_reply);
     }
     close(sock);
