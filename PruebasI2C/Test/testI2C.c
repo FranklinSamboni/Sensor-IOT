@@ -106,7 +106,7 @@ void writeReg(unsigned int addr, unsigned int data, int file){
 char* read_Rtc() {
 
     int file;
-    if ((file = open(FILE_NAME, O_RDWR)) < 0) {
+    if ((file = open(FILE_NAME, O_RDWR | O_NOCTTY | O_NDELAY)) < 0) {
         // Aqui se puede ver si hay algun error abriendo el archivo
         perror("Fallo a abrir el bus i2c. \n");
         exit(1);
@@ -130,7 +130,7 @@ char* read_Rtc() {
 
 */
     
-//  writeReg(0x00,0x00,file);
+//   writeReg(0x00,0x00,file);
 
     unsigned char buffer[BUF_SIZE];
 
@@ -180,7 +180,7 @@ int main(){
 	signal(SIGINT, signal_handler);
 	while(keepGoing){
 		fprintf(fecha,read_Rtc());
-		sleep(1);
+
 	}
 	fclose(fecha);
 

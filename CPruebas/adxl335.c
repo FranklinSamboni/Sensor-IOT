@@ -12,6 +12,7 @@
 #include <signal.h>
 //#include <sys/time.h>
 #include <fcntl.h>
+#include <time.h>
 
 #define ANINX 0
 #define ANINY 2
@@ -60,7 +61,7 @@ int read_anin(char * fileName){
 	if(resultado > 0){
 		buffer[resultado] = '\0';
 		close(fp);
-		printf("!resultado: %d!-",resultado);
+		//printf("!resultado: %d!-",resultado);
 		return atoi(buffer);
 
 	}else{
@@ -84,14 +85,27 @@ int main(int argc, char **argv, char **envp){
 	int yy=0;
 	int zz=0;
 
+	int counter = 0;
+	time_t inicio,fin;
+	double dif = 0.0;
 	while(keepGoing){
-
+		if(counter == 0){
+			inicio = time(NULL);
+		}
 		xx = read_anin(fileNameX);
 		yy = read_anin(fileNameY);
 		zz = read_anin(fileNameZ);
-		printf("X: %d | Y: %d | Z: %d\n",xx,yy,zz);
-		fprintf(archivo,"X: %d | Y: %d | Z: %d\n", xx,yy,zz);
-		usleep(5);
+		//printf("Counter: %d | X: %d | Y: %d | Z: %d\n",counter,xx,yy,zz);
+		fprintf(archivo,"Counter: %d | X: %d | Y: %d | Z: %d\n",counter, xx,yy,zz);
+		//usleep(5); // usleep delay en microsegundos 
+		//sleep(1);
+		counter = counter + 1;
+		fin = time(NULL);
+		dif = difftime(fin,inicio);
+		//printf("\ntime: %lf",dif);
+		if(difftime(fin,inicio) == 1.0){
+			counter = 0;
+		}
 	}
 	fclose(archivo);
 }

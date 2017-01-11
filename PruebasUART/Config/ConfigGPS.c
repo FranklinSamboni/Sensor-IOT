@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define DEVICE "/dev/ttyO2" // Ubicación del dispositivo, en este caso UART2
 #define BAUDRATE0 B4800   // 9600 es el valor establecido por fabrica.
@@ -30,16 +31,15 @@ FILE *tiempo;
 void setFactoryDefaults();
 void configureSerialPort(int bauds);
 void configureMessageType(int type);
-void configureNMEA_MESSAGES(int GGA, int GSA, int GSV, int GLL, int RMC, int VTG, int ZDA);
-void printERRORmsg(char * msgError);
+void configureNMEA_Messages(int GGA, int GSA, int GSV, int GLL, int RMC, int VTG, int ZDA);
+void printErrorMsg(char * msgError);
 void printBuffer(int size, char * buffer);
 void saveTime(int size, char * buffer);
 void savePosition( int size, char * buffer);
 void openUART(int baudRate);
 void readUART();
-void writeUART(char * buffer);
-void writeConfigMessage(char *buffer);
 void closeUART();
+char checkSum(int pl, char * payload);
 
 /*
 void signal_handler(int sig){
@@ -49,7 +49,7 @@ void signal_handler(int sig){
 }*/
 
 int main(int argc, char *argv[]){
-	printf("-----------------------------------------------------------------------------------------------\n");
+    printf("-----------------------------------------------------------------------------------------------\n");
     printf("--------------------------- Programa para la configuración del GPS ----------------------------\n");
     printf("-----------------------------------------------------------------------------------------------\n");
 
@@ -69,16 +69,62 @@ int main(int argc, char *argv[]){
     write(file,buffe,16);*/
 
     //setFactoryDefaults();
-    //configureSerialPort(0);//115200
-    //configureMessageType(0);//NMEA
 
-    //configureNMEA_MESSAGES(int GGA, int GSA, int GSV, int GLL, int RMC, int VTG, int ZDA);
-    //configureNMEA_MESSAGES(1,1,0,0,1,0,0);
+//TOCA VER EL CHECK SUM PARA QUE FUNCIONE, SINO NO FUNCIONA LOS
+//COMANDOS DE CONFIGURACIÓN.
 
+
+    //115200
+    //configureMessageType(1);// NMEA
+    //configureSerialPort(3);
+    //configureNMEA_Messages(int GGA, int GSA, int GSV, int GLL, int RMC, int VTG, int ZDA);
+    //configureNMEA_Messages(1,0,0,0,0,0,0);
+    time_t inicio, fin;
+    int cont = 0;
     while (TRUE) {
-    	readUART();
-	}
+//	printf("Inicio\n");
 
+    	readUART();
+    	if(cont == 0){
+    				inicio = time(NULL);
+    				//configureMessageType(2);
+    				cont = 1;
+
+    			}
+	//sleep(1);
+    	fin = time(NULL);
+    	if(difftime(fin,inicio) > 5.0 && cont < 5){
+    		inicio = time(NULL);
+
+    		cont = 0;
+    		/*if(cont == 1){
+    			cont = 2;
+    			printf("\nBinary\n");
+    			configureMessageType(2);
+    			//configureSerialPort(0);
+    		}
+    		else if(cont == 2){
+    			cont = 3;
+    			printf("\nNmea\n");
+    			configureMessageType(1);
+    			//configureSerialPort(1);
+    		}
+    		else if(cont == 3){
+    			cont = 4;
+    		    printf("\nNo output\n");
+    		    configureMessageType(0);
+    		    //configureSerialPort(2);
+    		   }
+    		else if(cont == 4){
+    			cont = 5;
+    		    printf("\n115000\n");
+    		    //configureSerialPort(2);
+    		}*/
+
+    	}
+
+//	printf("\nEn leer demoro: %f segundos.\n",difftime(fin,inicio));
+	}
     closeUART();
     return 0;
 }
@@ -87,7 +133,7 @@ void openUART(int baudRate){
 	file = open(DEVICE, O_RDWR | O_NOCTTY | O_NDELAY);
 	if (file < 0) {
 		char msgError[] = "Error intentando abrir el dispositivo UART.";
-		printERRORmsg(msgError);
+		printErrorMsg(msgError);
 		perror(DEVICE);
 		exit(-1);
 	}
@@ -125,33 +171,31 @@ void readUART(){
 	resultado = read(file,buf,255);
 	if(resultado < 0){
 		//char msg[] = "Error leyendo en UART.";
-		//printERRORmsg(msg);
+		//printErrorMsg(msg);
 		//perror(DEVICE);
 		//readUART();
 	}
 	else{
-		//	printBuffer(resultado, buf);
-		savePosition(resultado, buf);
+		printBuffer(resultado, buf);
+		//savePosition(resultado, buf);
 		//saveTime(resultado, buf);
 	}
 }
 
-void writeUART(char * buffer){
-	write(file,buffer,255);
-}
 
 void writeConfigMessage(char *buffer){
 	int bytes;
 
 	bytes = write(file,buffer,255);
+
 	if(bytes < 0){
 		char msg[] = "Error escribiendo en UART.";
-		printERRORmsg(msg);
+		printErrorMsg(msg);
 		perror(DEVICE);
 	}
 
-	readUART(); // Para leer la respuesta del gps.
-	readUART();
+	//readUART(); // Para leer la respuesta del gps.
+	//readUART();
 
 }
 
@@ -160,6 +204,19 @@ void closeUART(){
 	if(fd != -1 ){
 		file = fd; // fd debe ser cero si la sentencia close es correcta.
 	}
+}
+
+char checkSum(int pl, char * payload){
+
+	char cs = 0x00;
+	int n = 0;
+	while(n < pl){
+		cs = cs ^ payload[n];
+		n = n + 1;
+	}
+	printf("CS es : !%hhX!\n", cs);
+	// malloc(255);
+	return cs;
 }
 
 /* ----------------------------------------------------------------------------------------------------
@@ -172,19 +229,25 @@ void closeUART(){
 /*-- Restaurar los parametros del GPS a valores de fabrica. --*/
 void setFactoryDefaults(){
 	char buffer[9] = {0};
+	char payload[2] = {0};
 	buffer[0] = 0xA0;
 	buffer[1] = 0xA1;
 	buffer[2] = 0x00;
 	buffer[3] = 0x02; // PL -> PayLoad length
-	buffer[4] = 0x04; // 0x04 -> Es el id de "setFactoryDefaults"
-	buffer[5] = 0x01; // 0x01 -> reiniciar despues de configurar los valores por defecto
-	buffer[6] = 0x04; // CS -> CheckSum
+
+	payload[0] = 0x04; // 0x04 -> Es el id del mensaje "setFactoryDefaults"
+	payload[1] = 0x01; // 0x01 -> reiniciar despues de configurar los valores por defecto
+
+	buffer[4] =  payload[0];
+	buffer[5] =  payload[1];
+	buffer[6] = checkSum(2,payload); // CS -> CheckSum
 	buffer[7] = 0x0D;
 	buffer[8] = 0x0A;
+
+	printf("Escribiendo: !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8]);
+
 	writeConfigMessage(buffer);
 }
-
-
 
 /*---- Configurar el puerto serial ----
  *-- Se configura la tasa de baudios---
@@ -196,104 +259,88 @@ void setFactoryDefaults(){
  *---El Venus GPS logger no maneja las--
  *---tasas de baudios de : ---------
  *---19200 y 57600 */
+
 void configureSerialPort(int bauds){
-	printf("Inicio Cambio");
+	printf("Inicio Cambio: %d\n", bauds);
+	char payload[4] = {0};
 	char buffer[11] = {0};
 	buffer[0] = 0xA0;
 	buffer[1] = 0xA1;
 	buffer[2] = 0x00;
 	buffer[3] = 0x04; // PL -> PayLoad length
-	buffer[4] = 0x05; // 0x05 -> Es el id de "configureSerialPort"
-	buffer[5] = 0x00; // 0x00 -> COM0
-	buffer[6] = 0x01; // Aqui va la tasa de baudios -> por defecto es 9600
-    /*--------------------------------------------------------------------------------------------*/
-    buffer[7] = 0x01; // 0x01 -> update to SRAM & FLASH  ---  0x00 -> only SRAM.
-    /*---- Se elige 0x01 para que la configuracion no se pierda cuando se reinicie el sistema --- */
-	buffer[8] = 0x05; // CS -> CheckSum
-	buffer[9] = 0x0D;
-	buffer[10] = 0x0A;
+	payload[0] = 0x05; // 0x05 -> Es el id de "configureSerialPort"
+	payload[1] = 0x00; // 0x00 -> COM0
 
 	switch(bauds){
 	case 0:
-		buffer[6] = 0x00;  // -> 4800
+		payload[2] = 0x00;  // -> 4800 // Aqui va la tasa de baudios -> por defecto es 9600
 		break;
 	case 1:
-		buffer[6] = 0x01; // -> 9600
+		payload[2] = 0x01; // -> 9600
 		break;
 	case 2:
-		buffer[6] = 0x03; // -> 38400
+		payload[2] = 0x03; // -> 38400
 		break;
 	case 3:
-		buffer[6] = 0x05; //  -> 115200
+		payload[2] = 0x05; //  -> 115200
 		break;
 	default:
-		buffer[6] = 0x01; // -> 9600
+		payload[2] = 0x01; // -> 9600
 		break;
 	}
+    /*--------------------------------------------------------------------------------------------*/
+	payload[3] = 0x01; // 0x01 -> update to SRAM & FLASH  ---  0x00 -> only SRAM.
+    /*---- Se elige 0x01 para que la configuracion no se pierda cuando se reinicie el sistema --- */
+	buffer[4] = payload[0];
+    buffer[5] = payload[1];;
+    buffer[6] = payload[2];
+    buffer[7] = payload[3];
+	buffer[8] = checkSum(4,payload); // CS -> CheckSum
+    buffer[9] = 0x0D;
+    buffer[10] = 0x0A;
+    //buffer[7] = 0x00;
 
-	printf("Escribiendo");
+	printf("Escribiendo: !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8],buffer[9],buffer[10]);
 	writeConfigMessage(buffer); // escribe por el UART antes de modificar la tasa de baudios de la Beagle.
 
-	printf("cambio tasa de baudios");
-    /*
-	tcgetattr(file, &options);
-	if(bauds == 0){
-		cfsetispeed(&options, BAUDRATE0); // cambiar la velocidad de entrada y salida del UART de la Beagle.
-	}
-	else if(bauds == 2){
-		cfsetispeed(&options, BAUDRATE2);
-	}
-	else if(bauds == 3){
-		cfsetispeed(&options, BAUDRATE3);
-	}
-	else{
-		cfsetispeed(&options, BAUDRATE1);
-	}
-	tcflush(file, TCIFLUSH);
-	tcsetattr(file, TCSANOW, &options);*/
-
+	closeUART();
+	openUART(bauds);
 }
 
 
-/*-- type = 0 -> mensajes NMEA, type = 1 -> mensajes Binarios. --*/
+/*-- type = 1 -> mensajes NMEA, type = 2 -> mensajes Binarios. -- type == 0 -> no output*/
 void configureMessageType(int type)
 {
 	char buffer[9] = {0};
-	if(type == 0){
-		buffer[0] = 0xA0;
-		buffer[1] = 0xA1;
-		buffer[2] = 0x00;
-		buffer[3] = 0x02; // PL -> PayLoad length
-		buffer[4] = 0x09; // 0x09 -> Es el id de "messageType"
-		buffer[5] = 0x01; // 0x01 -> Mensajes NMEA
-		buffer[6] = 0x09; // CS -> CheckSum
-		buffer[7] = 0x0D;
-		buffer[8] = 0x0A;
-		writeConfigMessage(buffer);
+	char payload[2] = {0};
+	buffer[0] = 0xA0;
+	buffer[1] = 0xA1;
+	buffer[2] = 0x00;
+	buffer[3] = 0x02; // PL -> PayLoad length
+	payload[0] = 0x09; // 0x09 -> Es el id de "messageType"
+	if(type == 2){
+		payload[1] = 0x02;  // 0x02 -> Mensajes Binarios
 	}
-	else if(type == 1){
-		buffer[0] = 0xA0;
-		buffer[1] = 0xA1;
-		buffer[2] = 0x00;
-		buffer[3] = 0x02; // PL -> PayLoad length
-		buffer[4] = 0x09; // 0x09 -> Es el id del "messageType"
-		buffer[5] = 0x01; // 0x02 -> Mensajes Binarios
-		buffer[6] = 0x09; // CS -> CheckSum
-		buffer[7] = 0x0D;
-		buffer[8] = 0x0A;
-		writeConfigMessage(buffer);
+	else if(type == 0){
+		payload[1] = 0x00;   // 0x00 -> No output
 	}
-	else {
-		char msgError[] = "Error, los valores para configureMessageType deben ser : 0 -> NMEA, 1 -> Binario";
-		printERRORmsg(msgError);
+	else{ //por defecto se va a configurar los mensajes NMEA
+		payload[1] = 0x01; // 0x01 -> Mensajes NMEA
 	}
+	buffer[4] = payload[0];
+	buffer[5] = payload[1];
+	buffer[6] = checkSum(2,payload); // CS -> CheckSum
+	buffer[7] = 0x0D;
+	buffer[8] = 0x0A;
+	printf("Escribiendo: !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8]);
+	writeConfigMessage(buffer);
 }
 
 /*-- Habilitar o deshabilitar los mensasjes NMEA --
  *-- Los parametros de esta función deben tomar los valores de 0x00 -> 0 o 0x01 -> 1 --
  *-- 0 -> deshabilitado
  *-- 1 -> habilitado --*/
-void configureNMEA_MESSAGES(int GGA, int GSA, int GSV, int GLL, int RMC, int VTG, int ZDA){
+void configureNMEA_Messages(int GGA, int GSA, int GSV, int GLL, int RMC, int VTG, int ZDA){
 
 	if (GGA > 1 || GGA < 0 ||
 		GSA > 1 || GSA < 0 ||
@@ -303,58 +350,76 @@ void configureNMEA_MESSAGES(int GGA, int GSA, int GSV, int GLL, int RMC, int VTG
 		VTG > 1 || VTG < 0 ||
 		ZDA > 1 || ZDA < 0 )
 	{
-		char msgError[] = "Error, los valores para configureNMEA_MESSAGES deben ser : 0 o 1 ";
-		printERRORmsg(msgError);
+		char msgError[] = "Error, los valores para configureNMEA_Messages deben ser : 0 o 1 ";
+		printErrorMsg(msgError);
 	}
 	else{
 		char buffer[16];
+		char payload[9] = {0};
 		buffer[0] = 0xA0;
 		buffer[1] = 0xA1;
 		buffer[2] = 0x00;
 		buffer[3] = 0x09; // PL -> PayLoad length
-		buffer[4] = 0x08; // 0x08 -> Es el id del "configureNMEA_MESSAGES"
-		buffer[5] = GGA; // -> GGA
-		buffer[6] = GSA; // -> GSA
-		buffer[7] = GSV; // -> GSV
-		buffer[8] = GLL; // -> GLL
-		buffer[9] = RMC; // -> RMC
-		buffer[10] = VTG; // -> VTG
-		buffer[11] = ZDA; // -> ZDA
-		/*--------------------------------------------------------------------------------------------*/
-		buffer[12] = 0x01; // 0x01 -> update to SRAM & FLASH  ---  0x00 -> only SRAM.
-		/*---- Se elige 0x01 para que la configuracion no se pierda cuando se reinicie el sistema --- */
-		buffer[13] = 0x08; // CS -> CheckSum
+
+		payload[0] = 0x08; // 0x08 -> Es el id del "configureNMEA_Messages"
+		payload[1] = GGA; // -> GGA
+		payload[2] = GSA; // -> GSA
+		payload[3] = GSV; // -> GSV
+		payload[4] = GLL; // -> GLL
+		payload[5] = RMC; // -> RMC
+		payload[6] = VTG; // -> VTG
+		payload[7] = ZDA; // -> ZDA
+		payload[8] = ZDA; // -> ZDA
+/*--------------------------------------------------------------------------------------------*/
+		payload[9] = 0x01; // 0x01 -> update to SRAM & FLASH  ---  0x00 -> only SRAM.
+/*---- Se elige 0x01 para que la configuracion no se pierda cuando se reinicie el sistema --- */
+
+		buffer[4] = payload[0];
+		buffer[5] = payload[1];
+		buffer[6] = payload[2];
+		buffer[7] = payload[3];
+		buffer[8] = payload[4];
+		buffer[9] = payload[5];
+		buffer[10] = payload[6];
+		buffer[11] = payload[7];
+		buffer[12] = payload[8];
+
+		buffer[13] = checkSum(9,payload); // CS -> CheckSum
 		buffer[14] = 0x0D;
 		buffer[15] = 0x0A;
 
+		printf("Escribiendo: !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8]);
+		printf("!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[9],buffer[10],buffer[11],buffer[12],buffer[13],buffer[14],buffer[15]);
 		writeConfigMessage(buffer);
 	}
 }
 
-void printERRORmsg(char *msgError){
-	printf("\n------------------------Error-------------------------------\n");
-	printf("--%s--\n",msgError);
+void printErrorMsg(char *msgError){
+	printf("\n------------------------Error-------------------------------");
+	printf("\n %s",msgError);
 	printf("\n------------------------------------------------------------\n");
 }
 
 void printBuffer(int size, char * buffer){
 	int i = 0;
-	printf("\nLeyendo Buffer # bytes: %d ------------\n",size);
+	buffer[size] = 0;
+	printf("Leyendo Buffer # bytes: %d ------------\n",size);
 	while (i < size){
 			printf("!%hhX!",buffer[i]);
 			i = i + 1;
 		}
-	if(buffer)
 	printf("\n%s\n",buffer);
 
 }
 
-
 void saveTime(int size, char * buffer){
 
 }
-void savePosition( int size, char * buffer){
 
+void savePosition( int size, char * buffer){
+        time_t inicio, fin;
+	printf("Inicio \n");
+	inicio = time(NULL);
 	printf("\n%s\n",buffer);
 	if(buffer[0] == '$')
 	{
@@ -366,6 +431,7 @@ void savePosition( int size, char * buffer){
 	    char *token = strtok(buffer,",");
 	    while (token != NULL)
 	    {
+		//usleep(500000);
 	    	printf("token_: %s\n", token);
 	    	result = strcmp(token,"$GPGGA"); // Para comparar si dos cadenas son iguales. retorna 0 si son iguales
 
@@ -410,10 +476,9 @@ void savePosition( int size, char * buffer){
 	    	fprintf(ubicacion,"lat: %s | lng: %s | alt: %s\n",lat,lng,alt);
 	    	fclose(ubicacion);
 	    }
-
 	}
-
-
+	fin = time(NULL);
+	printf("\nEn leer demoro: %f segundos.\n",difftime(fin,inicio));
 }
 /*
 char split(char * string){

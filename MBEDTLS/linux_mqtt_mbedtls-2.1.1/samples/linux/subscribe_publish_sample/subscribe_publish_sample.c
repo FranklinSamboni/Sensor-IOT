@@ -31,6 +31,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <string.h>
+#include <json/json.h>
 
 #include "aws_iot_config.h"
 #include "aws_iot_log.h"
@@ -233,7 +234,18 @@ int main(int argc, char **argv) {
 
 		IOT_INFO("-->sleep");
 		sleep(1);
-		sprintf(cPayload, "%s : %d ", "hello from SDK QOS0", i++);
+
+                json_object * jobj = json_object_new_object();
+
+                // Creando Json string
+                json_object * jstring = json_object_new_string("Hola");
+
+                //añadiendo el string al objeto JSON
+                json_object_object_add(jobj,"msg",jstring);
+
+                sprintf(cPayload,"%s",json_object_to_json_string(jobj));
+
+//		sprintf(cPayload, "%s : %d", "hello from SDK QOS0", i++);
 		paramsQOS0.payloadLen = strlen(cPayload);
 		rc = aws_iot_mqtt_publish(&client, "sdkTest/sub", 11, &paramsQOS0);
 		if(publishCount > 0) {
