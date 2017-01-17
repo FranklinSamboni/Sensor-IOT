@@ -5,7 +5,7 @@ MAIN = main.c
 OBJECTS = $(gpsdir)gps.o $(rtcdir)rtc.o $(gpiodir)gpio.o
 
 build : $(OBJECTS)
-	gcc $(MAIN) -o build $(OBJECTS)
+	gcc $(MAIN) -o build $(OBJECTS) -lrt
 
 $(gpsdir)gps.o : $(gpsdir)gps.c $(gpsdir)
 	gcc -o $(gpsdir)gps.o -c $(gpsdir)gps.c
@@ -19,3 +19,4 @@ $(gpiodir)gpio.o : $(gpiodir)gpio.c $(gpiodir)
 .PHONY : clean
 clean :
 	-rm build $(OBJECTS)
+

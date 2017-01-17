@@ -7,10 +7,25 @@
  * - <Message Body>: Cuerpo del mensaje.
  * - CS: CheckSum.
  * - <0x0D,0x0A>: Cabecera de fin de mensaje.
+ *
+ * Para mas información sobre estos mensaje binarios consultar :
+ * http://cdn.sparkfun.com/datasheets/Sensors/GPS/AN0003_v1.4.19.pdf
  * --------------------------------------------------------------------------------------------------*/
 
 #ifndef _GPS_H_
 #define _GPS_H_
+
+/*
+ * El dispositivo Venus GPS Logger se comunica a través del puerto UART, a través del cual
+ * envia la información ya sea en forma binaria o en formato NMEA.
+ *
+ * Este dispositivo envia la información cada segundo, ademas cuenta con una señal PPS
+ * que se activa cada segundo y nos servida de sincronizació del sistema.
+ *
+ * Para mas información consultar su datasheet.
+ * http://cdn.sparkfun.com/datasheets/Sensors/GPS/Venus638FLPx.pdf
+ *
+ * */
 
 	#include <stdio.h>
 	#include <termios.h>
@@ -21,14 +36,17 @@
 	#define BAUDRATE2 B38400
 	#define BAUDRATE3 B115200
 
+	#define SAMPLES_DIR "muestras"
 //#define TRUE 1
 //#define FALSE 0
 
 	typedef struct gpsStr gpsStr;
 	typedef struct gpsData gpsData;
 
+	//char currentDirectory[100];
+
 	struct gpsStr {
-		int file; 	   			/* Identificador del archivo. */
+		int file;
 		char device[24];
 		struct termios options; /* Opciones de configuración del UART. */
 	};
@@ -82,7 +100,7 @@
 	void printBuffer(int size, char * buffer);
 
 /* Guarda los datos del GPS en un archivo de texto e inizializa la estructura gpsData. */
-	void saveDataGps(char * buffer);
+	void saveDataGps(char * buffer, char * dir);
 
 /* Obtienen los datos importantes del GPS, para ello primero hay que guardar los datos con SaveData.*/
 	int isGGA(char * buffer);
@@ -93,5 +111,7 @@
 	int getLat(char * buffer, char * GGA_NEMEA);
 	int getLng(char * buffer, char * GGA_NEMEA);
 	int getAlt(char * buffer, char * GGA_NEMEA);
+
+	void createDirGps(char *dir, char * date, char *time);
 
 #endif

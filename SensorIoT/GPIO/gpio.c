@@ -3,7 +3,7 @@
 #include "gpio.h"
 
 void initGPIO(int number, gpioParams* params){
-	printf("Modificado GPIO;\n");
+
 	if(params->number != 0){
 		eraseParams(params);
 	}
@@ -11,10 +11,10 @@ void initGPIO(int number, gpioParams* params){
 	params->number = number;
 
 	sprintf(params->name, "gpio%d",number);
-
-	strcpy(params->path,GPIO_PATH);
+	sprintf(params->path, "%s%s/",GPIO_PATH,params->name);
+	/*strcpy(params->path,GPIO_PATH);
 	strcat(params->path,params->name);
-	strcat(params->path,"/");
+	strcat(params->path,"/"); *///modificar
 
 	printf("%s\n",params->path);
 	printf("%s\n",GPIO_PATH);
@@ -48,7 +48,6 @@ int unexportGPIO(gpioParams* params){
 	return res;
 }
 
-
 int writeGPIOInt(char * path, char * filename, int value){
 	char val[10];
 	sprintf(val, "%d",value);
@@ -65,6 +64,9 @@ int writeGPIO(char * path, char * filename, char * value){
 	strcat(name,filename);
 
 	fp = fopen(name, "w");
+	if(fp == NULL){
+		return -1;
+	}
 	fprintf(fp, value);
 	fclose(fp);
 	return 1;
@@ -159,6 +161,20 @@ int setEdgeType(gpioEdge edge, gpioParams* params){
 	}
 	return res;
 }
+
+int setActiveLow(gpioParams* params){
+	int res = 0;
+	res = writeGPIO(params->path, "active_low", "1");
+	return res;
+}
+
+int setActiveHigh(gpioParams* params){
+	int res = 0;
+	res = writeGPIO(params->path, "active_low", "0");
+	return res;
+}
+
+
 
 gpioDirection getDirection(gpioParams* params){
 
@@ -272,7 +288,7 @@ void eraseParams(gpioParams* params){
 }
 
 void printErrorMsgGpio(char *msgError){
-	printf("\nGPIO Error: %s",msgError);
+	printf("\nGPIO Error: %s\n",msgError);
 }
 
 

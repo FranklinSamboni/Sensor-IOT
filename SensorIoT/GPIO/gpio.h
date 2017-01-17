@@ -32,6 +32,9 @@
 	int setValue(gpioValue value, gpioParams* params);
 	int setEdgeType(gpioEdge edge, gpioParams* params);
 
+	int setActiveLow(gpioParams* params);  //low=1, high=0
+	int setActiveHigh(gpioParams* params);
+
 	gpioDirection getDirection(gpioParams* params);
 	gpioValue getValue(gpioParams* params);
 	gpioEdge getEdgeType(gpioParams* params);

@@ -12,7 +12,7 @@ gpsStr gps;
 gpsData data;
 
 int openUART(int baudRate, char * gpsDevice){
-	printf("Modificado GPS;\n");
+
 	strcpy(gps.device,gpsDevice);
 
 	gps.file = open(gps.device, O_RDWR | O_NOCTTY | O_NDELAY);
@@ -282,7 +282,7 @@ void printBuffer(int size, char * buffer){
 
 }
 
-void saveDataGps(char * buffer){
+void saveDataGps(char * buffer, char * dir){
 
 	int bits = 0;
 	if(isGGA(buffer) == 1){
@@ -300,12 +300,17 @@ void saveDataGps(char * buffer){
 		data.date[bits] = 0;
 	}
 
+	if(data.date[0] != 0 && data.time[0] != 0){
 
-	FILE * ubicacion = fopen ("ubicacion.txt", "w+");
-    printf("GPS Archivo -> date: %s | time: %s | lat: %s | lng: %s | alt: %s\n",data.date,data.time,data.lat,data.lng,data.alt);
-    fprintf(ubicacion,"date: %s | time: %s | lat: %s | lng: %s | alt: %s\n",data.date,data.time,data.lat,data.lng,data.alt);
-    fclose(ubicacion);
+		createDirGps(dir,data.date,data.time);
 
+		//FILE * ubicacion = fopen ("ubicacion.txt", "w+");
+		//FILE * ubicacion = fopen ("muestras/pruebas/datos.txt", "w");
+		FILE * ubicacion = fopen (dir, "r+");
+		printf("GPS Archivo -> date: %s | time: %s | lat: %s | lng: %s | alt: %s\n",data.date,data.time,data.lat,data.lng,data.alt);
+		fprintf(ubicacion,"date: %s | time: %s | lat: %s | lng: %s | alt: %s\n",data.date,data.time,data.lat,data.lng,data.alt);
+		fclose(ubicacion);
+	}
 	/*
 	int result = -1, i=0;
 	char *token = strtok(buffer,",");
@@ -355,24 +360,30 @@ int isGpsConectedToSat(char * buffer){
 /*Verificar que la trama sea GGA*/
 int isGGA(char * buffer){
 
+	if(buffer[0]=='$' && buffer[1]=='G' && buffer[2]=='P' && buffer[3]=='G' && buffer[4]=='G' && buffer[5]=='A'){
+		return 1;
+	}
+	return -1;
 
-
-	//hacerlo de otra maneraasdasdasdaksdkljasjdasldjalkfasdpadasdads
-
-	char *token = strtok(buffer,",");
+	/*char *token = strtok(buffer,",");
 	if(strcmp(token,"$GPGGA") == 0){
 		return 1; // es GGA
 	}
-	return -1;
+	return -1;*/
 }
 
 /*Verificar que la trama sea RMC*/
 int isRMC(char * buffer){
-	char *token = strtok(buffer,",");
+
+	if(buffer[0]=='$' && buffer[1]=='G' && buffer[2]=='P' && buffer[3]=='R' && buffer[4]=='M' && buffer[5]=='C'){
+		return 1;
+	}
+	return -1;
+	/*char *token = strtok(buffer,",");
 	if(strcmp(token,"$GPRMC") == 0){
 		return 1; // es RMC
 	}
-	return -1;
+	return -1;*/
 }
 
 /* Verificar que la trama sea GGA antes de llamar a este metodo. Con isGGA() */
@@ -522,6 +533,31 @@ int getAlt(char * buffer, char * GGA_NEMEA){
 	return count;*/
 }
 
+void createDirGps(char *dir, char * date, char *time){
+	char fecha[100] = {0};
+	struct stat st = {0};
+	sprintf(fecha,"%s/%s",SAMPLES_DIR,date);
+
+	if (stat(SAMPLES_DIR, &st) == -1) {
+	    mkdir(SAMPLES_DIR, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+	}
+
+	if (stat(fecha, &st) == -1) {
+	    mkdir(fecha, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+	}
+
+	if(dir[0] == 0){
+		sprintf(dir,"%s/%s/%c%c%c%c%c%c.txt",SAMPLES_DIR,date,time[0],time[1],time[2],time[3],time[4],time[5]);
+		FILE *archivo = fopen (dir, "w");
+		fclose(archivo);
+	}
+	else if (time[2]=='0' && time[3]=='0' && time[4]=='0' && time[5]=='0'){ //Nueva Hora
+		sprintf(dir,"%s/%s/%c%c%c%c%c%c.txt",SAMPLES_DIR,date,time[0],time[1],time[2],time[3],time[4],time[5]);
+		FILE *archivo = fopen (dir, "w");
+		fclose(archivo);
+	}
+
+}
 
 
 
