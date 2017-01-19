@@ -58,7 +58,7 @@ int main(){
 	//configureSerialPort(3);
 	//setFactoryDefaults();
 	//configureNMEA_Messages(int GGA, int GSA, int GSV, int GLL, int RMC, int VTG, int ZDA)
-	//configureNMEA_Messages(1,0,0,0,1,0,0);
+	configureNMEA_Messages(1,0,0,0,1,0,0);
 	activeAlarmRtc();
 	int flag = 0;
 
@@ -71,13 +71,11 @@ int main(){
 
 	while(keepGoing){
 
-
-
 		if(getValue(&gpio26) == HIGH){
 
 			gettimeofday(&t_iniiii, NULL);
 
-			clock_gettime(CLOCK_MONOTONIC, &start);	/* mark start time */
+			clock_gettime(CLOCK_MONOTONIC, &start);
 
 			printf("\n ----- Señal pps ------- \n");
 			gps = readUART(buf);
@@ -118,7 +116,7 @@ int main(){
 
 			gettimeofday(&t_finnnn, NULL);
 
-			clock_gettime(CLOCK_MONOTONIC, &end);	/* mark the end time */
+			clock_gettime(CLOCK_MONOTONIC, &end);
 
 			diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
 			printf("elapsed time = %llu nanoseconds\n", (long long unsigned int) diff);
@@ -148,7 +146,6 @@ int main(){
 				}
 			}
 		}
-
 	}
 	closeUART();
 	closeI2C();
