@@ -2,22 +2,14 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <string.h>
-#include "GPS/gps.h"
-#include "RTC/rtc.h"
-#include "GPIO/gpio.h"
+#include "libs/GPS/gps.h"
+#include "libs/RTC/rtc.h"
+#include "libs/GPIO/gpio.h"
+#include "libs/SOCKET/socketlib.h"
 
 #include <stdint.h>
 #include <time.h>
 //para arhivos
-
-
-/* retorna "a - b" en segundos */
-double timeval_diff(struct timeval *a, struct timeval *b)
-{
-  return
-    (double)(a->tv_sec + (double)a->tv_usec/1000000) -
-    (double)(b->tv_sec + (double)b->tv_usec/1000000);
-}
 
 #define BILLION 1000000000L
 
@@ -28,8 +20,7 @@ char currentDirectory[100];
 gpioParams gpio23; // para RTC
 gpioParams gpio26; // para GPS
 
-gpioParams gpio44;
-
+gpioParams gpio67;
 
 void signal_handler(int sig);
 
@@ -38,7 +29,7 @@ void signal_handler(int sig);
 
 int main(){
 
-	//signal(SIGINT, signal_handler);
+	signal(SIGINT, signal_handler);
 
 	int gps = 0, bits;
 	int rtc = 0;
@@ -46,24 +37,33 @@ int main(){
 	char bufRtc[255] = {0};
 	char time[255] = {0};
 
+	initGPIO(67, &gpio67);
+	setDirection(OUTPUT, &gpio67);
+	setValue(HIGH,&gpio67);
+
 	initGPIO(23, &gpio23);
 	setDirection(INPUT, &gpio23);
 
 	initGPIO(26, &gpio26);
 	setDirection(INPUT, &gpio26);
 
-	openUART(1,DEVICE_UART);
+	openSOCKET(SERVER_IP,SOCKET_PORT);
+
+	char msg[] = "hola.\n";
+
+	writeSOCKET(msg);
+	readSOCKET(buf);
+	printf("%s\n",buf);
+	closeSOCKET();
+/*	openUART(1,DEVICE_UART);
 	openI2C(DECIVE_I2C);
 
 	//configureSerialPort(3);
 	//setFactoryDefaults();
 	//configureNMEA_Messages(int GGA, int GSA, int GSV, int GLL, int RMC, int VTG, int ZDA)
-	configureNMEA_Messages(1,0,0,0,1,0,0);
+	//configureNMEA_Messages(1,0,0,0,1,0,0);
 	activeAlarmRtc();
 	int flag = 0;
-
-	struct timeval t_iniiii, t_finnnn;
-	double secssss;
 
 	uint64_t diff;
 	struct timespec start, end;
@@ -73,11 +73,9 @@ int main(){
 
 		if(getValue(&gpio26) == HIGH){
 
-			gettimeofday(&t_iniiii, NULL);
-
 			clock_gettime(CLOCK_MONOTONIC, &start);
 
-			printf("\n ----- Señal pps ------- \n");
+			printf("\n ----- Senial pps ------- \n");
 			gps = readUART(buf);
 			if(gps != -1){
 				while(gps != -1){
@@ -114,15 +112,11 @@ int main(){
 				}
 			}
 
-			gettimeofday(&t_finnnn, NULL);
-
 			clock_gettime(CLOCK_MONOTONIC, &end);
 
 			diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
-			printf("elapsed time = %llu nanoseconds\n", (long long unsigned int) diff);
-
-			secssss = timeval_diff(&t_finnnn, &t_iniiii);
-			printf("%.16g get time of day milliseconds\n", secssss * 1000.0);
+			printf("Tiempo nanosegundos = %llu ns\n", (long long unsigned int) diff);
+			printf("Tiempo milisegundos = %llu ms\n", (long long unsigned int) diff/1000000);
 
 		}
 		else{
@@ -149,14 +143,17 @@ int main(){
 	}
 	closeUART();
 	closeI2C();
+*/
 	return 0;
 }
 
 void signal_handler(int sig){
 	printf( "Ctrl-C pressed, cleaning up and exiting..\n" );
 	keepGoing = 0;
+	setValue(LOW,&gpio67);
 	destroyGPIO(&gpio23);
 	destroyGPIO(&gpio26);
+	destroyGPIO(&gpio67);
 	desactiveAlarmRtc();
 	closeUART();
 	closeI2C();

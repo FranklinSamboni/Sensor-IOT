@@ -18,7 +18,7 @@ int openUART(int baudRate, char * gpsDevice){
 	gps.file = open(gps.device, O_RDWR | O_NOCTTY | O_NDELAY);
 	if (gps.file < 0) {
 		char msgError[] = "Error intentando abrir el dispositivo UART.";
-		printErrorMsgGps(msgError);
+		errorGps(msgError);
 		perror(gps.device);
 		return -1;
 	}
@@ -56,7 +56,7 @@ int readUART(char * buf){
 	resultado = read(gps.file,buf,255);
 	if(resultado < 0){
 		char msg[] = "Error leyendo el UART.";
-		printErrorMsgGps(msg);
+		errorGps(msg);
 		perror(gps.device);
 		return -1;
 	}
@@ -71,7 +71,7 @@ int writeUART(char *buffer){
 
 	if(bytes < 0){
 		char msg[] = "Error escribiendo en UART.";
-		printErrorMsgGps(msg);
+		errorGps(msg);
 		perror(gps.device);
 		return -1;
 	}
@@ -81,6 +81,7 @@ int writeUART(char *buffer){
 int closeUART(){
 	int fd = close(gps.file);
 	if(fd == -1 ){
+		errorGps("Error cerrando UART");
 		return -1;
 	}
 	gps.file = fd; /* fd debe ser cero si la sentencia close es correcta.*/
@@ -143,7 +144,7 @@ int configureSerialPort(int bauds){
 		payload[2] = options[bauds]; // Tasa de baudios
 	}
 	else{
-		printErrorMsgGps("Opción incorrecta, Elige 0 para 4800,1 para 9600,2 para 38400,3 para 115200");
+		errorGps("Opción incorrecta, Elige 0 para 4800,1 para 9600,2 para 38400,3 para 115200");
 		return -1;
 	}
 	payload[3] = 0x01; // 0x01 -> actualizar en la SRAM y FLASH -- 0x00 -> solo en SRAM.
@@ -221,7 +222,7 @@ int configureNMEA_Messages(int GGA, int GSA, int GSV, int GLL, int RMC, int VTG,
 		ZDA > 1 || ZDA < 0 )
 	{
 		char msgError[] = "Error, los valores para configureNMEA_Messages deben ser : 0 o 1 ";
-		printErrorMsgGps(msgError);
+		errorGps(msgError);
 		return -1;
 	}
 	else{
@@ -267,7 +268,7 @@ int configureNMEA_Messages(int GGA, int GSA, int GSV, int GLL, int RMC, int VTG,
 	}
 }
 
-void printErrorMsgGps(char *msgError){
+void errorGps(char *msgError){
 	printf("\nError GPSLIB: %s\n",msgError);
 }
 
@@ -398,7 +399,7 @@ int getTimeGps(char * buffer, char * GGA_NEMEA){
 	return i; // # bits
 
 	/*if(data.gprmc[3][0] == 0 && data.gprmc[3][1] == 0 && data.gprmc[3][2] == 0 && data.gprmc[3][3] == 0){
-		printErrorMsgGps("Error Tiempo no se ha capturado\n");
+		errorGps("Error Tiempo no se ha capturado\n");
 	    return -1;
 	}
 	int tam = sizeof(data.gprmc[1]); // posicion del Tiempo
@@ -425,7 +426,7 @@ int getDateGps(char * buffer, char * RMC_NEMEA){
 	return i; // # bits
 
 	/*if(data.gprmc[3][0] == 0 && data.gprmc[3][1] == 0 && data.gprmc[3][2] == 0 && data.gprmc[3][3] == 0){
-		printErrorMsgGps("Error Fecha no se ha capturado\n");
+		errorGps("Error Fecha no se ha capturado\n");
 	    return -1;
 	}
 	int tam = sizeof(data.gprmc[9]); // posicion de la fecha
@@ -456,7 +457,7 @@ int getLat(char * buffer, char * GGA_NEMEA){
 	return i; // # bits
 
 	/*if(data.gprmc[3][0] == 0 && data.gprmc[3][1] == 0 && data.gprmc[3][2] == 0 && data.gprmc[3][3] == 0){
-		printErrorMsgGps("Error Latitud no se ha capturado\n");
+		errorGps("Error Latitud no se ha capturado\n");
 	    return -1;
 	}
 	int tam = sizeof(data.gprmc[3]); // posicion de la fecha
@@ -489,7 +490,7 @@ int getLng(char * buffer, char * GGA_NEMEA){
 
 
 	/*if(data.gprmc[3][0] == 0 && data.gprmc[3][1] == 0 && data.gprmc[3][2] == 0 && data.gprmc[3][3] == 0){
-		printErrorMsgGps("Error Longitud no se ha capturado\n");
+		errorGps("Error Longitud no se ha capturado\n");
 	    return -1;
 	}
 	int tam = sizeof(data.gprmc[5]); // posicion de la fecha
@@ -518,7 +519,7 @@ int getAlt(char * buffer, char * GGA_NEMEA){
 	return i; // # bits
 
 	/*if(data.gpgga[9][0] == 0 && data.gpgga[9][1] == 0 && data.gpgga[9][2] == 0 && data.gpgga[9][3] == 0){
-		printErrorMsgGps("Error Altitud no se ha capturado\n");
+		errorGps("Error Altitud no se ha capturado\n");
 	    return -1;
 	}
 	int tam = sizeof(data.gpgga[9]); // posicion de la fecha

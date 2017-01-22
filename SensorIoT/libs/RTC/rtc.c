@@ -15,12 +15,12 @@ int openI2C(char * rtcDevice){
 	strcpy(rtc.device,rtcDevice);
 	rtc.file = open(rtc.device, O_RDWR);
     if (rtc.file < 0) {
-		printErrorMsgRtc("Error intentando abrir el dispositivo I2C.");
+		errorRtc("Error intentando abrir el dispositivo I2C.");
 		perror(rtc.device);
 		return -1;
     }
     if (ioctl(rtc.file, I2C_SLAVE, SLAVE_ADDRESS) < 0) {
-        printErrorMsgRtc("Error al intentar conectar al dispositivo esclavo");
+        errorRtc("Error al intentar conectar al dispositivo esclavo");
         perror(rtc.device);
         return -1;
     }
@@ -38,7 +38,7 @@ int readI2C(char * buffer){
     resultado = read(rtc.file,buffer,BUF_SIZE_I2C);
 
     if(resultado < 0){
-        printErrorMsgRtc("Error al intentar leer el bus I2C");
+        errorRtc("Error al intentar leer el bus I2C");
         perror(rtc.device);
         return -1;
     }
@@ -51,7 +51,7 @@ int writeAddr(unsigned int address){
 	buffer[0]=address;
 	int res = write(rtc.file,buffer,1);
 	if (res !=1 ){
-		printErrorMsgRtc("Error al intentar escribir en el dispositivo I2C.");
+		errorRtc("Error al intentar escribir en el dispositivo I2C.");
 		perror(rtc.device);
 		return -1;
 	}
@@ -69,7 +69,7 @@ int writeI2C(unsigned int address, unsigned int content){
 	bytes = write(rtc.file,buffer,2);
 
     if( bytes != 2) {
-    	printErrorMsgRtc("Error al intentar escribir en el dispositivo I2C.");
+    	errorRtc("Error al intentar escribir en el dispositivo I2C.");
     	perror(rtc.device);
     	return -1;
     }
@@ -79,6 +79,7 @@ int writeI2C(unsigned int address, unsigned int content){
 int closeI2C(){
 	int fd = close(rtc.file);
 	if(fd == -1 ){
+		errorRtc("Error cerrando I2C.");
 		return -1;
 	}
 	rtc.file = fd; /* fd debe ser cero si la sentencia close es correcta.*/
@@ -90,8 +91,8 @@ int closeI2C(){
 	return 1;
 }
 
-void printErrorMsgRtc(char *msgError){
-	printf("\nError RTCLIB: %s",msgError);
+void errorRtc(char *msgError){
+	printf("\nError RTCLIB: %s\n",msgError);
 }
 
 void printData(char * buffer){
@@ -143,7 +144,7 @@ int activeAlarmRtc(){
 		}
 	}
 
-	printErrorMsgRtc("Fallo Activar alarma.");
+	errorRtc("Fallo Activar alarma.");
 	writeI2C(0x00,0x00);
 	return -1;
 }
@@ -154,7 +155,7 @@ int desactiveAlarmRtc(){
 		return 1;// Para actualizar la hora.
 	}
 
-	printErrorMsgRtc("Fallo desactivar alarma.");
+	errorRtc("Fallo desactivar alarma.");
 	writeI2C(0x00,0x00);
 	return -1;
 }
@@ -165,7 +166,7 @@ void getTimeRtc(char * buffer, char *I2C_DATA){
 	sprintf(buffer,"%02x%02x%02x",I2C_DATA[2],I2C_DATA[1],I2C_DATA[0]);
 
 	/*if(values.time[0] == 0 && values.time[1] == 0 && values.time[2] == 0){
-		printErrorMsgRtc("Error Tiempo no se ha capturado\n");
+		errorRtc("Error Tiempo no se ha capturado\n");
 	    return -1;
 	}
 
@@ -189,7 +190,7 @@ void getDateRtc(char * buffer, char *I2C_DATA){
 	sprintf(buffer,"%02x%02x%02x",I2C_DATA[4],I2C_DATA[5],I2C_DATA[6]);
 
 	/*if(values.date[0] == 0 && values.date[1] == 0 && values.date[2] == 0){
-		printErrorMsgRtc("Error La fecha no se ha capturado\n");
+		errorRtc("Error La fecha no se ha capturado\n");
 	    return -1;
 	}
 	int tam = sizeof(values.date);
@@ -233,7 +234,7 @@ int setTimeRtc(char * buffer){
 		}
 	}
 
-	printErrorMsgRtc("Fallo Sincronización");
+	errorRtc("Fallo Sincronización");
 	writeI2C(0x00,0x00);
 	return -1;
 }

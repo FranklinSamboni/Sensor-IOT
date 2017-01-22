@@ -24,7 +24,7 @@
  * */
 
 	#define SLAVE_ADDRESS 0x68
-	#define DECIVE_I2C "/dev/i2c-1"
+	#define DECIVE_I2C "/dev/i2c-2"
 	#define BUF_SIZE_I2C 0x13
 	#define SAMPLES_DIR_R "muestras"
 	typedef struct rtcStr rtcStr;
@@ -46,7 +46,7 @@
 	int writeI2C(unsigned int address, unsigned int data);
 	int closeI2C();
 
-	void printErrorMsgRtc(char *msgError);
+	void errorRtc(char *msgError);
 	void printData(char * buffer);
 
 	void saveDataRtc(char * buffer, char * dir);

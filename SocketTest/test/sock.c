@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <netdb.h> 
+#include <netdb.h>
 
 void error(const char *msg)
 {
@@ -55,13 +55,13 @@ int main()
     bzero(buffer,256);
     fgets(buffer,255,stdin);
     n = send(sockfd , buffer , strlen(buffer) , 0);
-    
-    if (n < 0) 
+
+    if (n < 0)
          error("ERROR writing to socket");
     bzero(buffer,256);*/
     n = recv(sockfd , buffer , 2000 , 0);
     //n = read(sockfd,buffer,255);
-    if (n < 0) 
+    if (n < 0)
          error("ERROR reading from socket");
     printf("Recibido: %s\n",buffer);}
     close(sockfd);

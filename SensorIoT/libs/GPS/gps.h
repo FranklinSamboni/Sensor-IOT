@@ -16,11 +16,11 @@
 #define _GPS_H_
 
 /*
- * El dispositivo Venus GPS Logger se comunica a través del puerto UART, a través del cual
+ * El dispositivo Venus GPS Logger se comunica por medio del puerto UART, a través del cual
  * envia la información ya sea en forma binaria o en formato NMEA.
  *
  * Este dispositivo envia la información cada segundo, ademas cuenta con una señal PPS
- * que se activa cada segundo y nos servida de sincronizació del sistema.
+ * que se activa cada segundo y nos servir� de sincronizació del sistema.
  *
  * Para mas información consultar su datasheet.
  * http://cdn.sparkfun.com/datasheets/Sensors/GPS/Venus638FLPx.pdf
@@ -96,7 +96,7 @@
  * - 0x01 o 1 -> habilitado. */
 	int configureNMEA_Messages(int GGA, int GSA, int GSV, int GLL, int RMC, int VTG, int ZDA);
 
-	void printErrorMsgGps(char *msgError);
+	void errorGps(char *msgError);
 	void printBuffer(int size, char * buffer);
 
 /* Guarda los datos del GPS en un archivo de texto e inizializa la estructura gpsData. */

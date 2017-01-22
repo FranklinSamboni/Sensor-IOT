@@ -1,11 +1,13 @@
-gpsdir = GPS/
-rtcdir = RTC/
-gpiodir = GPIO/
+lib = libs/
+gpsdir = $(lib)GPS/
+rtcdir = $(lib)RTC/
+gpiodir = $(lib)GPIO/
+socketdir = $(lib)SOCKET/
 MAIN = main.c
-OBJECTS = $(gpsdir)gps.o $(rtcdir)rtc.o $(gpiodir)gpio.o
+OBJECTS = $(gpsdir)gps.o $(rtcdir)rtc.o $(gpiodir)gpio.o $(socketdir)socketlib.o
 
-build : $(OBJECTS)
-	gcc $(MAIN) -o build $(OBJECTS) -lrt
+main : $(OBJECTS)
+	gcc $(MAIN) -o main $(OBJECTS) -lrt
 
 $(gpsdir)gps.o : $(gpsdir)gps.c $(gpsdir)
 	gcc -o $(gpsdir)gps.o -c $(gpsdir)gps.c
@@ -16,7 +18,10 @@ $(rtcdir)rtc.o : $(rtcdir)rtc.c $(rtcdir)
 $(gpiodir)gpio.o : $(gpiodir)gpio.c $(gpiodir)
 	gcc -o $(gpiodir)gpio.o -c $(gpiodir)gpio.c
 
+$(socketdir)socketlib.o : $(socketdir)socketlib.c $(socketdir)
+	gcc -o $(socketdir)socketlib.o -c $(socketdir)socketlib.c
+
 .PHONY : clean
 clean :
-	-rm build $(OBJECTS)
+	-rm main $(OBJECTS)
 
