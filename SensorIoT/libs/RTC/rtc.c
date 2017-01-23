@@ -64,7 +64,7 @@ int writeI2C(unsigned int address, unsigned int content){
 
 	buffer[0] = address;
 	buffer[1] = content;
-	printf("Escribiendo: !%hhX! En la dirección  !%hhX! \n",content, address);
+	printf("Escribiendo (RTC): !%hhX! En la dirección  !%hhX! \n",content, address);
 
 	bytes = write(rtc.file,buffer,2);
 
@@ -128,6 +128,7 @@ void saveDataRtc(char * buffer, char * dir){
 
 int activeAlarmRtc(){
 
+	printf("Activando alarma RTC.\n");
 	int res = 0;
 	res = writeI2C(0x07,0x81);
 	if(res != -1){

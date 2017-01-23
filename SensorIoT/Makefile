@@ -7,7 +7,7 @@ MAIN = main.c
 OBJECTS = $(gpsdir)gps.o $(rtcdir)rtc.o $(gpiodir)gpio.o $(socketdir)socketlib.o
 
 main : $(OBJECTS)
-	gcc $(MAIN) -o main $(OBJECTS) -lrt
+	gcc $(MAIN) -o main $(OBJECTS) -lrt -l json
 
 $(gpsdir)gps.o : $(gpsdir)gps.c $(gpsdir)
 	gcc -o $(gpsdir)gps.o -c $(gpsdir)gps.c

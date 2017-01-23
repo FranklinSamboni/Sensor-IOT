@@ -51,7 +51,7 @@ int readSOCKET(char * buffer){
 	buffer[res] = 0;
 	return 1;
 }
-int writeSOCKET(char * buffer){
+int writeSOCKET(const char * buffer){
 	int res = 0;
 
 	res = send(sock.sockfd , buffer , strlen(buffer) , 0);

@@ -20,7 +20,7 @@
 
 	int openSOCKET(char * ip_server, int port);
 	int readSOCKET(char * buffer);
-	int writeSOCKET(char * buffer);
+	int writeSOCKET(const char * buffer);
 	int closeSOCKET();
 
 	void errorSocket(char *msgError);

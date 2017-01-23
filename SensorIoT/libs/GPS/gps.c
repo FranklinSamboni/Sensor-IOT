@@ -70,7 +70,7 @@ int writeUART(char *buffer){
 	bytes = write(gps.file,buffer,255);
 
 	if(bytes < 0){
-		char msg[] = "Error escribiendo en UART.";
+		char msg[] = "Error Escribiendo (GPS) en UART.";
 		errorGps(msg);
 		perror(gps.device);
 		return -1;
@@ -125,7 +125,7 @@ int setFactoryDefaults(){
 	buffer[7] = 0x0D;
 	buffer[8] = 0x0A;
 
-	printf("Escribiendo: !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8]);
+	printf("Escribiendo (GPS): !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8]);
 
 	res = writeUART(buffer);
 	return res;
@@ -147,7 +147,7 @@ int configureSerialPort(int bauds){
 		errorGps("Opción incorrecta, Elige 0 para 4800,1 para 9600,2 para 38400,3 para 115200");
 		return -1;
 	}
-	payload[3] = 0x01; // 0x01 -> actualizar en la SRAM y FLASH -- 0x00 -> solo en SRAM.
+	payload[3] = 0x00; // 0x01 -> actualizar en la SRAM y FLASH -- 0x00 -> solo en SRAM.
 
 	/*Construyendo mensaje*/
 	buffer[0] = 0xA0;
@@ -163,7 +163,7 @@ int configureSerialPort(int bauds){
     buffer[9] = 0x0D;
     buffer[10] = 0x0A;
 
-	printf("Escribiendo: !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8],buffer[9],buffer[10]);
+	printf("Escribiendo (GPS): !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8],buffer[9],buffer[10]);
 
 	// Escribe por el UART antes de modificar la tasa de baudios de la Beagle.
 	res = writeUART(buffer);
@@ -172,7 +172,7 @@ int configureSerialPort(int bauds){
 		char device[24] = {0};
 		strcpy(device,gps.device);
 		res =  closeUART();
-		printf("cLOSE");
+		printf("CLOSE");
 		if(res == 1){
 			res = openUART(bauds, device);
 			printf("OPEN");
@@ -206,7 +206,7 @@ int configureMessageType(int type)
 	buffer[6] = checkSum(2,payload); // CS -> CheckSum
 	buffer[7] = 0x0D;
 	buffer[8] = 0x0A;
-	printf("Escribiendo: !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8]);
+	printf("Escribiendo (GPS): !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8]);
 	res = writeUART(buffer);
 	return res;
 }
@@ -261,7 +261,7 @@ int configureNMEA_Messages(int GGA, int GSA, int GSV, int GLL, int RMC, int VTG,
 		buffer[14] = 0x0D;
 		buffer[15] = 0x0A;
 
-		printf("Escribiendo: !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8]);
+		printf("Escribiendo (GPS): !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8]);
 		printf("!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[9],buffer[10],buffer[11],buffer[12],buffer[13],buffer[14],buffer[15]);
 		res = writeUART(buffer);
 		return res;
@@ -287,16 +287,19 @@ void saveDataGps(char * buffer, char * dir){
 
 	int bits = 0;
 	if(isGGA(buffer) == 1){
+		bits = getAlt(data.alt,buffer);
+		if(bits != -1){
+			data.alt[bits] = 0;
+		}
+
+	}
+	else if(isRMC(buffer) == 1) {
 		bits = getTimeGps(data.time,buffer);
 		data.time[bits] = 0;
 		bits = getLat(data.lat,buffer);
 		data.lat[bits] = 0;
 		bits = getLng(data.lng,buffer);
 		data.lng[bits] = 0;
-		bits = getAlt(data.alt,buffer);
-		data.alt[bits] = 0;
-	}
-	else if(isRMC(buffer) == 1) {
 		bits = getDateGps(data.date,buffer);
 		data.date[bits] = 0;
 	}
@@ -348,12 +351,12 @@ void saveDataGps(char * buffer, char * dir){
 
 }
 
-int isGpsConectedToSat(char * buffer){
-	if(isGGA(buffer) == 1){
+int isRmcStatusOk(char * buffer){
 
-	}
-	else if(isRMC(buffer) == 1){
-
+	if(isRMC(buffer) == 1){
+		if(buffer[18] == 'A'){ // Byte 18 -> Data status A = OK, V = Void (warning)
+			return 1;
+		}
 	}
 	return -1;
 }
@@ -366,11 +369,6 @@ int isGGA(char * buffer){
 	}
 	return -1;
 
-	/*char *token = strtok(buffer,",");
-	if(strcmp(token,"$GPGGA") == 0){
-		return 1; // es GGA
-	}
-	return -1;*/
 }
 
 /*Verificar que la trama sea RMC*/
@@ -380,38 +378,20 @@ int isRMC(char * buffer){
 		return 1;
 	}
 	return -1;
-	/*char *token = strtok(buffer,",");
-	if(strcmp(token,"$GPRMC") == 0){
-		return 1; // es RMC
-	}
-	return -1;*/
+
 }
 
-/* Verificar que la trama sea GGA antes de llamar a este metodo. Con isGGA() */
-int getTimeGps(char * buffer, char * GGA_NEMEA){
+/* Verificar que la trama sea RMC antes de llamar a este metodo. Con isRMC()*/
+int getTimeGps(char * buffer, char * RMC_NEMEA){
 
 	int i=0;
 	while(i<10){
-		buffer[i] = GGA_NEMEA[i+7];  // El tiempo comienza en la posición 7 y su longitud es de 10 bits.
+		buffer[i] = RMC_NEMEA[i+7];  // El tiempo comienza en la posición 7 y su longitud es de 10 bits.
 		i++;
 	}
-
+	buffer[i] = 0;
 	return i; // # bits
 
-	/*if(data.gprmc[3][0] == 0 && data.gprmc[3][1] == 0 && data.gprmc[3][2] == 0 && data.gprmc[3][3] == 0){
-		errorGps("Error Tiempo no se ha capturado\n");
-	    return -1;
-	}
-	int tam = sizeof(data.gprmc[1]); // posicion del Tiempo
-	int count = 0;
-	while(count < tam){
-		if(data.gprmc[1][count] == 0){
-			break;
-		}
-		buffer[count] = data.gprmc[1][count];
-		count = count + 1;
-	}
-	return count;*/
 }
 
 /* Verificar que la trama sea RMC antes de llamar a este metodo. Con isRMC()*/
@@ -422,116 +402,59 @@ int getDateGps(char * buffer, char * RMC_NEMEA){
 		buffer[i] = RMC_NEMEA[i+57]; // La fecha comienza en la posición 57 y su longitud es de 6 bits.
 		i++;
 	}
-
+	buffer[i] = 0;
 	return i; // # bits
-
-	/*if(data.gprmc[3][0] == 0 && data.gprmc[3][1] == 0 && data.gprmc[3][2] == 0 && data.gprmc[3][3] == 0){
-		errorGps("Error Fecha no se ha capturado\n");
-	    return -1;
-	}
-	int tam = sizeof(data.gprmc[9]); // posicion de la fecha
-	int count = 0;
-	while(count < tam){
-		if(data.gprmc[9][count] == 0){
-			break;
-		}
-		buffer[count] = data.gprmc[9][count];
-		count = count + 1;
-	}
-	return count;*/
 
 }
 
-/* Verificar que la trama sea GGA antes de llamar a este metodo. Con isGGA()*/
-int getLat(char * buffer, char * GGA_NEMEA){
+/* Verificar que la trama sea RMC antes de llamar a este metodo. Con isRMC()*/
+int getLat(char * buffer, char * RMC_NEMEA){
 
 	int i=0;
 	while(i<9){
-		buffer[i] = GGA_NEMEA[i+18];  // La latitud comienza en la posición 18 y su longitud es de 9 bits.
+		buffer[i] = RMC_NEMEA[i+20];  // La latitud comienza en la posición 18 y su longitud es de 9 bits.
 		i++;
 	}
 
-	buffer[i] = GGA_NEMEA[28]; //Añadimos el indicador de N o S ubicados en la posicion 28, generando cadena de 10 bits.
+	buffer[i] = RMC_NEMEA[30]; //Añadimos el indicador de N o S ubicados en la posicion 28, generando cadena de 10 bits.
 	i++;
-
+	buffer[i] = 0;
 	return i; // # bits
 
-	/*if(data.gprmc[3][0] == 0 && data.gprmc[3][1] == 0 && data.gprmc[3][2] == 0 && data.gprmc[3][3] == 0){
-		errorGps("Error Latitud no se ha capturado\n");
-	    return -1;
-	}
-	int tam = sizeof(data.gprmc[3]); // posicion de la fecha
-	int count = 0;
-	while(count < tam){
-		if(data.gprmc[3][count] == 0){
-			buffer[count] = data.gprmc[4][0];
-			count = count + 1;
-			break;
-		}
-		buffer[count] = data.gprmc[3][count];
-		count = count + 1;
-	}
-	return count;*/
 }
 
-/* Verificar que la trama sea GGA antes de llamar a este metodo. Con isGGA()*/
-int getLng(char * buffer, char * GGA_NEMEA){
+/* Verificar que la trama sea RMC antes de llamar a este metodo. Con isRMC()*/
+int getLng(char * buffer, char * RMC_NEMEA){
 
 	int i=0;
 	while(i<10){
-		buffer[i] = GGA_NEMEA[i+30];  // La longitud comienza en la posición 30 y su longitud es de 10 bits.
+		buffer[i] = RMC_NEMEA[i+32];  // La longitud comienza en la posición 30 y su longitud es de 10 bits.
 		i++;
 	}
 
-	buffer[i] = GGA_NEMEA[41]; //Añadimos el indicador de W o E ubicados en la posicion 41, generando cadena de 11 bits.
+	buffer[i] = RMC_NEMEA[43]; //Añadimos el indicador de W o E ubicados en la posicion 41, generando cadena de 11 bits.
 	i++;
-
+	buffer[i] = 0;
 	return i; // # bits
 
-
-	/*if(data.gprmc[3][0] == 0 && data.gprmc[3][1] == 0 && data.gprmc[3][2] == 0 && data.gprmc[3][3] == 0){
-		errorGps("Error Longitud no se ha capturado\n");
-	    return -1;
-	}
-	int tam = sizeof(data.gprmc[5]); // posicion de la fecha
-	int count = 0;
-	while(count < tam){
-		if(data.gprmc[5][count] == 0){
-			buffer[count] = data.gprmc[6][0];
-			count = count + 1;
-			break;
-		}
-		buffer[count] = data.gprmc[5][count];
-		count = count + 1;
-	}
-	return count;*/
 }
 
 /* Verificar que la trama sea GGA antes de llamar a este metodo. Con isGGA()*/
 int getAlt(char * buffer, char * GGA_NEMEA){
+
+	if(GGA_NEMEA[52] == ',' || GGA_NEMEA[53] == ',' || GGA_NEMEA[54] == ',' || GGA_NEMEA[55] == ',' || GGA_NEMEA[56] == ',' || GGA_NEMEA[57] == ','){
+		errorGps("Error Altitud no se ha capturado.\n");
+		return -1;
+	}
 
 	int i=0;
 	while(i<6){
 		buffer[i] = GGA_NEMEA[i+52];  // La altitud comienza en la posición 52 y su longitud es de 6 bits.
 		i++;
 	}
-
+	buffer[i] = 0;
 	return i; // # bits
 
-	/*if(data.gpgga[9][0] == 0 && data.gpgga[9][1] == 0 && data.gpgga[9][2] == 0 && data.gpgga[9][3] == 0){
-		errorGps("Error Altitud no se ha capturado\n");
-	    return -1;
-	}
-	int tam = sizeof(data.gpgga[9]); // posicion de la fecha
-	int count = 0;
-	while(count < tam){
-		if(data.gpgga[9][count] == 0){
-			break;
-		}
-		buffer[count] = data.gpgga[9][count];
-		count = count + 1;
-	}
-	return count;*/
 }
 
 void createDirGps(char *dir, char * date, char *time){

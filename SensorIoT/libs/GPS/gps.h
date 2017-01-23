@@ -103,6 +103,7 @@
 	void saveDataGps(char * buffer, char * dir);
 
 /* Obtienen los datos importantes del GPS, para ello primero hay que guardar los datos con SaveData.*/
+	int isRmcStatusOk(char * buffer);
 	int isGGA(char * buffer);
 	int isGGA(char * buffer);
 
