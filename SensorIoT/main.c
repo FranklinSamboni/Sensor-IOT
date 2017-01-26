@@ -50,12 +50,15 @@ void checkingPPS();
  * */
 void settingRtC();
 
+int getStatus(json_object * jobj);
+
 int main(){
 
 	signal(SIGINT, signal_handler);
 
 	int gps = 0, bits;
 	int rtc = 0;
+	char bufSock[255] = {0};
 	char buf[255] = {0};
 	char bufRtc[255] = {0};
 	char time[255] = {0};
@@ -81,7 +84,23 @@ int main(){
 
 	settingRtC();
 
-	writeSOCKET("Estado: Ready.\n");
+	//writeSOCKET("Estado: Ready.\n");
+	int fsc = 0;
+	while(keepGoing){
+		printf ("Antes\n");
+		fsc = readSOCKET(bufSock);
+		printf ("Despues\n");
+		if(fsc != -1 ){
+			printf ("JSON string: %s.\n", bufSock);
+			json_object * jobj = json_tokener_parse(bufSock);
+			printf ("Status: %d.\n", getStatus(jobj));
+		}else{
+			printf ("Error socket.\n");
+		}
+		printf ("Final\n");
+
+	}
+
 /*
 
 	int flag = 0;
@@ -165,6 +184,7 @@ int main(){
 	closeUART();
 	closeI2C();
 */
+
 	return 0;
 }
 
@@ -196,8 +216,15 @@ void loadingGpsData(){
 	configureNMEA_Messages(1,0,0,0,1,0,0);
 	sleep(1); // waiting for GPS
 
+	json_object * jstatus = json_object_new_object();
+	json_object *js = json_object_new_int(1);
+	json_object *jmsg = json_object_new_string("Cargando datos del GPS.");
 
-	writeSOCKET("Estado: Cargando datos del GPS.\n");
+	json_object_object_add(jstatus,"status", js);
+	json_object_object_add(jstatus,"msg", jmsg);
+
+	writeSOCKET(json_object_to_json_string(jstatus));
+	usleep(5000000);
 
 	time_t inicio, fin;
 	int diff = 0;
@@ -206,6 +233,7 @@ void loadingGpsData(){
 
 	while(keepGoing){
 		res = readUART(buf);
+
 		if(res != -1){
 			inicio = time(NULL);
 			printBuffer(res,buf);
@@ -221,12 +249,15 @@ void loadingGpsData(){
 				getTimeGps(timeGps,buf);
 				if(flag == 1){
 
+					js = json_object_new_int(2);
 					json_object *jlat = json_object_new_string(lat);
 					json_object *jlng = json_object_new_string(lng);
 					json_object *jalt = json_object_new_string(alt);
 					json_object *jdate = json_object_new_string(dateGps);
 					json_object *jtime = json_object_new_string(timeGps);
 
+
+					json_object_object_add(jobj,"status", js);
 					json_object_object_add(jobj,"lat", jlat);
 					json_object_object_add(jobj,"lng", jlng);
 					json_object_object_add(jobj,"alt", jalt);
@@ -240,14 +271,18 @@ void loadingGpsData(){
 				}
 			}
 			else{
-				writeSOCKET("Estado: ...Cargando datos GPS.\n");
+				writeSOCKET(json_object_to_json_string(jstatus));
+				usleep(5000000);
 			}
 		}
 		else{
 			fin  = time(NULL);
 			if(difftime(fin,inicio) > 20.0){
 				if(difftime(fin,inicio) > diff){
-					writeSOCKET("Estado: Revisa la conexión del GPS.\n");
+					js = json_object_new_int(-1);
+					jmsg = json_object_new_string("Revisa la conexión del GPS.");
+					writeSOCKET(json_object_to_json_string(jstatus));
+					usleep(5000000);
 				}
 				diff = difftime(fin,inicio);
 			}
@@ -263,7 +298,14 @@ void checkingPPS(){
 	int cont = 0;
 	json_object * jobj = json_object_new_object();
 
-	writeSOCKET("Estado: Verificando señal PPS.\n");
+	json_object * jstatus = json_object_new_object();
+	json_object *js = json_object_new_int(3);
+	json_object *jmsg = json_object_new_string("Verificando señal PPS.");
+
+	json_object_object_add(jstatus,"status", js);
+	json_object_object_add(jstatus,"msg", jmsg);
+
+	writeSOCKET(json_object_to_json_string(jstatus));
 
 	time_t inicio, fin;
 	int diff = 0;
@@ -273,9 +315,15 @@ void checkingPPS(){
 		if(getValue(&gpio26) == HIGH){
 			inicio = time(NULL);
 			if(cont == 5){
+
 				json_object *jboolean = json_object_new_boolean(1);
+				js = json_object_new_int(4);
+
+				json_object_object_add(jobj,"status", js);
 				json_object_object_add(jobj,"pps", jboolean);
+
 				writeSOCKET(json_object_to_json_string(jobj));
+
 				usleep(250000);
 				keepGoing = 0; // Salida del blucle
 				break;
@@ -285,7 +333,9 @@ void checkingPPS(){
 			fin = time(NULL);
 			if(difftime(fin,inicio) > 20.0){
 				if(difftime(fin,inicio) > diff){
-					writeSOCKET("Estado: Verifica la conexión de la señal PPS o espera una respuesta.\n");
+					js = json_object_new_int(-1);
+					jmsg = json_object_new_string("Verifica la conexión de la señal PPS o espera una respuesta.");
+					writeSOCKET(json_object_to_json_string(jstatus));
 				}
 				diff = difftime(fin,inicio);
 			}
@@ -302,7 +352,15 @@ void settingRtC(){
 	char timeBuf[24] = {0}, dateBuf[24] = {0};
 	json_object * jobj = json_object_new_object();
 
-	writeSOCKET("Estado: Activando señal SYNC y sincronizando RTC.\n");
+
+	json_object * jstatus = json_object_new_object();
+	json_object *js = json_object_new_int(5);
+	json_object *jmsg = json_object_new_string("Activando señal SYNC y sincronizando RTC.");
+
+	json_object_object_add(jstatus,"status", js);
+	json_object_object_add(jstatus,"msg", jmsg);
+
+	writeSOCKET(json_object_to_json_string(jstatus));
 
 	activeAlarmRtc();
 
@@ -336,10 +394,12 @@ void settingRtC(){
 						getTimeRtc(timeBuf,buf);
 						getDateRtc(dateBuf,buf);
 
+						js = json_object_new_int(6);
 						json_object *jboolean = json_object_new_boolean(1);
 						json_object *jtime = json_object_new_string(timeBuf);
 						json_object *jdate = json_object_new_string(dateBuf);
 
+						json_object_object_add(jobj,"status", js);
 						json_object_object_add(jobj,"sync", jboolean);
 						json_object_object_add(jobj,"time", jtime);
 						json_object_object_add(jobj,"date", jdate);
@@ -357,7 +417,9 @@ void settingRtC(){
 				fin = time(NULL);
 				if(difftime(fin,inicio) > 20.0){
 					if(difftime(fin,inicio) > diff){
-						writeSOCKET("Estado: Verifica la conexión de SQW (pin de SYNC) del RTC o espera una respuesta.\n");
+						json_object *js = json_object_new_int(-1);
+						json_object *jmsg = json_object_new_string("Verifica la conexión de SQW (pin de SYNC) del RTC o espera una respuesta.");
+						writeSOCKET(json_object_to_json_string(jstatus));
 					}
 					diff = difftime(fin,inicio);
 				}
@@ -365,5 +427,23 @@ void settingRtC(){
 		}
 	}
 	keepGoing = 1;
+
+}
+
+
+int getStatus(json_object * jobj) {
+	enum json_type type;
+	int status = -1;
+	json_object_object_foreach(jobj, key, val) {
+		type = json_object_get_type(val);
+		switch (type) {
+		case json_type_int:
+			//printf("type: json_type_int, ");
+			//printf("value: %dn", json_object_get_int(val));
+			status = json_object_get_int(val);
+			break;
+		}
+	}
+	return status;
 
 }

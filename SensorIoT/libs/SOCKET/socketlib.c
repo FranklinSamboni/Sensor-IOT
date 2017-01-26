@@ -51,6 +51,7 @@ int readSOCKET(char * buffer){
 	buffer[res] = 0;
 	return 1;
 }
+
 int writeSOCKET(const char * buffer){
 	int res = 0;
 
@@ -62,6 +63,7 @@ int writeSOCKET(const char * buffer){
 	}
 	return 1;
 }
+
 int closeSOCKET(){
 	int fd = close(sock.sockfd);
 	if(fd == -1 ){

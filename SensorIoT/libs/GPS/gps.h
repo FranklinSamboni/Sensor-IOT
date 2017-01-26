@@ -102,8 +102,10 @@
 /* Guarda los datos del GPS en un archivo de texto e inizializa la estructura gpsData. */
 	void saveDataGps(char * buffer, char * dir);
 
-/* Obtienen los datos importantes del GPS, para ello primero hay que guardar los datos con SaveData.*/
+/* Verifica que el gps haya obtenido los datos basicos.
+ * Para ello verifica el byte Status de la trama RMC.*/
 	int isRmcStatusOk(char * buffer);
+
 	int isGGA(char * buffer);
 	int isGGA(char * buffer);
 
