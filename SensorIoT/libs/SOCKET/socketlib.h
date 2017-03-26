@@ -3,7 +3,7 @@
 
 	#include <netinet/in.h>
 
-	#define SERVER_IP "35.163.18.161"
+	#define SERVER_IP "52.34.55.59"
 	#define SOCKET_PORT 46500
 
 	typedef struct socketStr socketStr;

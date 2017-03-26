@@ -1,13 +1,17 @@
 lib = libs/
+adcdri = $(lib)ADC/
 gpsdir = $(lib)GPS/
 rtcdir = $(lib)RTC/
 gpiodir = $(lib)GPIO/
 socketdir = $(lib)SOCKET/
 MAIN = main.c
-OBJECTS = $(gpsdir)gps.o $(rtcdir)rtc.o $(gpiodir)gpio.o $(socketdir)socketlib.o
+OBJECTS = $(adcdri)adc.o $(gpsdir)gps.o $(rtcdir)rtc.o $(gpiodir)gpio.o $(socketdir)socketlib.o
 
 main : $(OBJECTS)
 	gcc $(MAIN) -o main $(OBJECTS) -lrt -l json
+
+$(adcdri)adc.o : $(adcdri)adc.c $(adcdri)
+	gcc -o $(adcdri)adc.o -c $(adcdri)adc.c
 
 $(gpsdir)gps.o : $(gpsdir)gps.c $(gpsdir)
 	gcc -o $(gpsdir)gps.o -c $(gpsdir)gps.c

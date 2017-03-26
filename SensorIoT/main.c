@@ -5,11 +5,11 @@
 #include <json/json.h>
 #include <stdint.h>
 #include <time.h>
+#include "libs/ADC/adc.h"
 #include "libs/GPS/gps.h"
 #include "libs/RTC/rtc.h"
 #include "libs/GPIO/gpio.h"
 #include "libs/SOCKET/socketlib.h"
-
 
 /*
  * Directions INPUT, OUTPUT
@@ -24,8 +24,6 @@ char currentDirectory[100];
 
 gpioParams gpio68; // para RTC
 gpioParams gpio26; // para GPS
-
-gpioParams gpio67;
 
 void signal_handler(int sig);
 
@@ -85,6 +83,7 @@ int main(){
 	settingRtC();
 
 	//writeSOCKET("Estado: Ready.\n");
+
 	int fsc = 0;
 	while(keepGoing){
 		printf ("Antes\n");
