@@ -13,10 +13,6 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <linux/types.h>
 #include "../GPIO/gpio.h"
 
 gpioParams start20; // para START - out

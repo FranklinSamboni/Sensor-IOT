@@ -306,7 +306,7 @@ void saveDataGps(char * buffer, char * dir){
 
 	if(data.date[0] != 0 && data.time[0] != 0){
 
-		createDirGps(dir,data.date,data.time);
+		//createDirGps(dir,data.date,data.time);
 
 		//FILE * ubicacion = fopen ("ubicacion.txt", "w+");
 		//FILE * ubicacion = fopen ("muestras/pruebas/datos.txt", "w");
@@ -454,34 +454,4 @@ int getAlt(char * buffer, char * GGA_NEMEA){
 	}
 	buffer[i] = 0;
 	return i; // # bits
-
 }
-
-void createDirGps(char *dir, char * date, char *time){
-	char fecha[100] = {0};
-	struct stat st = {0};
-	sprintf(fecha,"%s/%s",SAMPLES_DIR,date);
-
-	if (stat(SAMPLES_DIR, &st) == -1) {
-	    mkdir(SAMPLES_DIR, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-	}
-
-	if (stat(fecha, &st) == -1) {
-	    mkdir(fecha, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-	}
-
-	if(dir[0] == 0){
-		sprintf(dir,"%s/%s/%c%c%c%c%c%c.txt",SAMPLES_DIR,date,time[0],time[1],time[2],time[3],time[4],time[5]);
-		FILE *archivo = fopen (dir, "w");
-		fclose(archivo);
-	}
-	else if (time[2]=='0' && time[3]=='0' && time[4]=='0' && time[5]=='0'){ //Nueva Hora
-		sprintf(dir,"%s/%s/%c%c%c%c%c%c.txt",SAMPLES_DIR,date,time[0],time[1],time[2],time[3],time[4],time[5]);
-		FILE *archivo = fopen (dir, "w");
-		fclose(archivo);
-	}
-
-}
-
-
-

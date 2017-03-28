@@ -22,8 +22,39 @@ int main(){
 	if (openSPI(DECIVE_SPI) < 0){
 		exit(0);
 	}
+/*
+	if(readRegister(recvBuf , POWER) > 1){
+			printf("valor leido POWER: %.2X \n",recvBuf[0]);
+			usleep(10);
+		}
 
+		if(readRegister(recvBuf , MODE0) > 1){
+			printf("valor leido MODE0 : %.2X \n",recvBuf[0]);
+			usleep(10);
+		}
+
+		if(readRegister(recvBuf , MODE1) > 1){
+			printf("valor leido MODE1: %.2X \n",recvBuf[0]);
+			usleep(10);
+		}
+
+		if(readRegister(recvBuf , MODE2) > 1){
+			printf("valor leido MODE2 : %.2X \n",recvBuf[0]);
+			usleep(10);
+		}
+
+		if(readRegister(recvBuf , INPMUX) > 1){
+			printf("valor leido INPMUX: %.2X \n",recvBuf[0]);
+			usleep(10);
+		}
+
+		if(readRegister(recvBuf , REFMUX) > 1){
+			printf("valor leido REFMUX : %.2X \n",recvBuf[0]);
+			usleep(10);
+		}
+		*/
 	settingADC();
+
 	int count = 0;
 	time_t inicio,fin;
 	double dif = 0.0;

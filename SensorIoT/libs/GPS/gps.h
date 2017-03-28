@@ -115,6 +115,5 @@
 	int getLng(char * buffer, char * GGA_NEMEA);
 	int getAlt(char * buffer, char * GGA_NEMEA);
 
-	void createDirGps(char *dir, char * date, char *time);
 
 #endif

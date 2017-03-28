@@ -26,7 +26,30 @@
 	#define SLAVE_ADDRESS 0x68
 	#define DECIVE_I2C "/dev/i2c-2"
 	#define BUF_SIZE_I2C 0x13
-	#define SAMPLES_DIR_R "muestras"
+
+	#define SECONDS 0x00 //00ñ59
+	#define MINUTES 0x01 //00ñ59
+	#define HOURS 0x02 //1ñ12 + AM/PM 00ñ23
+	#define DAY_OF_WEEK 0x03 // 1 - 7
+	#define DAY_OF_MONTH 0x04 // 0 - 31
+	#define MONTH_CENTURY 0x05 // 01ñ12 + Century
+	#define YEAR 0x06 // 00ñ99
+
+	#define A1M1_SECONDS 0x07 //00ñ59
+	#define A1M2_MINUTES 0x08 //00ñ59
+	#define A1M3_HOUR 0x09 //1ñ12 + AM/PM 00ñ23
+	#define A1M4_DAY_DATE 0x0A // 1 - 7 or 0 - 31
+
+	#define A2M2_MINUTES 0x0B //00ñ59
+	#define A2M3_HOUR 0x0C //1ñ12 + AM/PM 00ñ23
+	#define A2M4_DAY_DATE 0x0D // 1 - 7 or 0 - 31
+
+	#define EOSC 0x0E
+	#define OSF 0x0F
+	#define SIGN1 0x10
+	#define SIGN2 0x11
+	#define DATA 0x12
+
 	typedef struct rtcStr rtcStr;
 	typedef struct rtcData rtcData;
 
@@ -36,10 +59,6 @@
 		//struct termios options; /* Opciones de configuraci√≥n del UART. */
 	};
 
-	struct rtcData {
-		char time[10];
-		char date[10];
-	};
 
 	int openI2C(char * rtcDevice);
 	int readI2C(char * buffer);
@@ -57,6 +76,6 @@
 	void getTimeRtc(char * buffer, char *I2C_DATA);
 	void getDateRtc(char * buffer, char *I2C_DATA);
 	int setTimeRtc(char * buffer);
+	int setDateRtc(char * buffer);
 
-	void createDirRtc(char *dir, char * date, char *time);
 #endif

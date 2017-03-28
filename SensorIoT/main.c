@@ -5,6 +5,8 @@
 #include <json/json.h>
 #include <stdint.h>
 #include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "libs/ADC/adc.h"
 #include "libs/GPS/gps.h"
 #include "libs/RTC/rtc.h"
@@ -16,14 +18,13 @@
  * Values LOW, HIGH
  * 	*/
 
+#define SAMPLES_DIR_R "muestras"
 #define BILLION 1000000000L
 
-int keepGoing = 1;
-int sincronizar = -1;
-char currentDirectory[100];
+char currentDirectory[100] = {0};
 
-gpioParams gpio68; // para RTC
-gpioParams gpio26; // para GPS
+gpioParams gpio68_SYNC; // para RTC
+gpioParams gpio26_PPS; // para GPS
 
 void signal_handler(int sig);
 
@@ -50,9 +51,15 @@ void settingRtC();
 
 int getStatus(json_object * jobj);
 
+void readAndSaveData();
+
+int readAnalogInputsAndSaveData(char * date, char * time);
+
+void createDirRtc(char *dir, char * date, char *time);
+
 int main(){
 
-	signal(SIGINT, signal_handler);
+	//signal(SIGINT, signal_handler);
 
 	int gps = 0, bits;
 	int rtc = 0;
@@ -61,19 +68,33 @@ int main(){
 	char bufRtc[255] = {0};
 	char time[255] = {0};
 
-	initGPIO(67, &gpio67);
-	setDirection(OUTPUT, &gpio67);
-	setValue(HIGH,&gpio67);
+	initGPIO(68, &gpio68_SYNC);
+	setDirection(INPUT, &gpio68_SYNC);
 
-	initGPIO(68, &gpio68);
-	setDirection(INPUT, &gpio68);
+	initGPIO(26, &gpio26_PPS);
+	setDirection(INPUT, &gpio26_PPS);
 
-	initGPIO(26, &gpio26);
-	setDirection(INPUT, &gpio26);
+	// Conectando al servidor
 
-	openSOCKET(SERVER_IP,SOCKET_PORT); // Conectando al servidor
-	openUART(3,DEVICE_UART);
-	openI2C(DECIVE_I2C);
+	if(openSOCKET(SERVER_IP,SOCKET_PORT)< 0){
+		exit(0);
+	}
+
+	//TASA DE BAUDIOS D3 DE = B115200
+	if(openUART(3,DEVICE_UART)< 0){
+		exit(0);
+	}
+
+	if(openI2C(DECIVE_I2C)< 0){
+		exit(0);
+	}
+
+	if (openSPI(DECIVE_SPI) < 0){
+		exit(0);
+	}
+
+	settingPins(); // configurar pines de control del ADC
+	settingADC();
 
 	//setFactoryDefaults();
 	loadingGpsData();
@@ -85,7 +106,7 @@ int main(){
 	//writeSOCKET("Estado: Ready.\n");
 
 	int fsc = 0;
-	while(keepGoing){
+	while(1){
 		printf ("Antes\n");
 		fsc = readSOCKET(bufSock);
 		printf ("Despues\n");
@@ -93,6 +114,7 @@ int main(){
 			printf ("JSON string: %s.\n", bufSock);
 			json_object * jobj = json_tokener_parse(bufSock);
 			printf ("Status: %d.\n", getStatus(jobj));
+			readAndSaveData();
 		}else{
 			printf ("Error socket.\n");
 		}
@@ -100,100 +122,21 @@ int main(){
 
 	}
 
-/*
-
-	int flag = 0;
-
-	uint64_t diff;
-	struct timespec start, end;
-	int i;
-
-	while(keepGoing){
-
-		if(getValue(&gpio26) == HIGH){
-
-			clock_gettime(CLOCK_MONOTONIC, &start);
-
-			printf("\n ----- Senial pps ------- \n");
-			gps = readUART(buf);
-			if(gps != -1){
-				while(gps != -1){
-					flag = 0;
-					if(isGGA(buf) == 1){
-						bits = getTimeGps(time,buf);
-						time[bits] = 0;
-						if(sincronizar == -1){
-							sincronizar = setTimeRtc(time); // Modificar tiempo en RTC
-						}
-					}
-					printBuffer(gps,buf);
-					saveDataGps(buf,currentDirectory); // Guardar en archivo de texto.
-					gps = readUART(buf);
-				}
-			}
-			else{
-				if(getValue(&gpio68) == LOW){
-					flag = 1;
-					printf("Con RTC.\n");
-					// Es necesario reinicar la bandera de la alarma en la direccion 0x0F.
-					writeI2C(0x0F,0x88);
-					//writeI2C(0x0F,0x88);
-
-					rtc = readI2C(bufRtc);
-					if(rtc != -1){
-						printData(bufRtc);
-						saveDataRtc(bufRtc,currentDirectory);
-							//getTimeRtc(time,bufRtc);
-							//time[bits] = 0;
-							//printf("Tiempo RTC %s\n", time);
-
-					}
-				}
-			}
-
-			clock_gettime(CLOCK_MONOTONIC, &end);
-
-			diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
-			printf("Tiempo nanosegundos = %llu ns\n", (long long unsigned int) diff);
-			printf("Tiempo milisegundos = %llu ms\n", (long long unsigned int) diff/1000000);
-
-		}
-		else{
-			if(flag == 1){
-				if(getValue(&gpio68) == LOW){
-					printf("Low pps.\n");
-					printf("Con RTC.\n");
-					// Es necesario reinicar la bandera de la alarma en la direccion 0x0F.
-					writeI2C(0x0F,0x88);
-					//writeI2C(0x0F,0x88);
-
-					rtc = readI2C(bufRtc);
-					if(rtc != -1){
-						printData(bufRtc);
-						saveDataRtc(bufRtc,currentDirectory);
-							//getTimeRtc(time,bufRtc);
-							//time[bits] = 0;
-							//printf("Tiempo RTC %s\n", time);
-
-					}
-				}
-			}
-		}
-	}
+	destroyGPIO(&gpio68_SYNC);
+	destroyGPIO(&gpio26_PPS);
+	desactiveAlarmRtc();
 	closeUART();
 	closeI2C();
-*/
+	closeSOCKET();
+	closeSPI();
 
 	return 0;
 }
 
 void signal_handler(int sig){
 	printf( "Ctrl-C pressed, cleaning up and exiting..\n" );
-	keepGoing = 0;
-	setValue(LOW,&gpio67);
-	destroyGPIO(&gpio68);
-	destroyGPIO(&gpio26);
-	destroyGPIO(&gpio67);
+	destroyGPIO(&gpio68_SYNC);
+	destroyGPIO(&gpio26_PPS);
 	desactiveAlarmRtc();
 	closeUART();
 	closeI2C();
@@ -230,7 +173,7 @@ void loadingGpsData(){
 	inicio = time(NULL);
 
 
-	while(keepGoing){
+	while(1){
 		res = readUART(buf);
 
 		if(res != -1){
@@ -265,7 +208,6 @@ void loadingGpsData(){
 
 					writeSOCKET(json_object_to_json_string(jobj));
 					usleep(250000);
-					keepGoing = 0;
 					break;
 				}
 			}
@@ -288,8 +230,6 @@ void loadingGpsData(){
 		}
 	}
 
-	keepGoing = 1;
-
 }
 
 void checkingPPS(){
@@ -310,8 +250,8 @@ void checkingPPS(){
 	int diff = 0;
 	inicio = time(NULL);
 
-	while(keepGoing){
-		if(getValue(&gpio26) == HIGH){
+	while(1){
+		if(getValue(&gpio26_PPS) == HIGH){
 			inicio = time(NULL);
 			if(cont == 5){
 
@@ -324,7 +264,7 @@ void checkingPPS(){
 				writeSOCKET(json_object_to_json_string(jobj));
 
 				usleep(250000);
-				keepGoing = 0; // Salida del blucle
+				// Salida del blucle
 				break;
 			}
 			cont++;
@@ -340,7 +280,7 @@ void checkingPPS(){
 			}
 		}
 	}
-	keepGoing = 1;
+
 }
 
 void settingRtC(){
@@ -367,19 +307,22 @@ void settingRtC(){
 	int diff = 0;
 	inicio = time(NULL);
 
-	while(keepGoing){
-		if(getValue(&gpio26) == HIGH){
+	while(1){
+		if(getValue(&gpio26_PPS) == HIGH){
 			res = readUART(buf);
 			if(res != -1){
-				if(isGGA(buf) == 1){
-					getTimeGps(timeBuf,buf);
+				if(isRmcStatusOk(buf) == 1){
+					getTimeGps(timeBuf,buf); // configurando Hora
 					setTimeRtc(timeBuf); // Sincroniza RTC y GPS.
+
+					getDateGps(dateBuf,buf); // configurando fecha
+					setDateRtc(dateBuf);
 					sync = 1;
 				}
 			}
 		}
 		else{
-			if(getValue(&gpio68) == LOW){
+			if(getValue(&gpio68_SYNC) == LOW){
 				inicio = time(NULL);
 
 				// Es necesario reinicar la bandera de la alarma en la direccion 0x0F.
@@ -406,7 +349,7 @@ void settingRtC(){
 						writeSOCKET(json_object_to_json_string(jobj));
 						usleep(250000);
 
-						keepGoing = 0; //  Salida del bucle
+						 //  Salida del bucle
 						break;
 					}
 				}
@@ -425,12 +368,11 @@ void settingRtC(){
 			}
 		}
 	}
-	keepGoing = 1;
 
 }
 
-
 int getStatus(json_object * jobj) {
+
 	enum json_type type;
 	int status = -1;
 	json_object_object_foreach(jobj, key, val) {
@@ -444,5 +386,169 @@ int getStatus(json_object * jobj) {
 		}
 	}
 	return status;
+}
 
+void readAndSaveData(){
+
+		char buf[255] = {0},bufRtc[255] = {0};
+		char time[15] = {0}, date[10] = {0};
+		int flag = 0;
+		int gps = 0;
+		int rtc = 0;
+		uint64_t diff;
+		struct timespec start, end;
+
+		int i;
+
+		while(1){
+
+			if(getValue(&gpio26_PPS) == HIGH){
+
+				clock_gettime(CLOCK_MONOTONIC, &start);
+
+				printf("\n ----- Senial pps ------- \n");
+				gps = readUART(buf);
+				if(gps != -1){
+					while(gps != -1){
+						flag = 0;
+						printBuffer(gps,buf);
+						if(isRMC(buf) == 1) {
+							getTimeGps(time,buf);
+							getDateGps(date,buf);
+							break;
+							//bits = getLat(data.lat,buffer);
+							//bits = getLng(data.lng,buffer);
+
+						}
+						//saveDataGps(buf,currentDirectory); // Guardar en archivo de texto.
+						gps = readUART(buf);
+
+					}
+					if(date[0] != 0 && time[0] != 0){
+						readAnalogInputsAndSaveData(date, time);
+					}
+
+
+				}
+				else{
+					if(getValue(&gpio68_SYNC) == LOW){
+						flag = 1;
+						printf("Con RTC.\n");
+						// Es necesario reinicar la bandera de la alarma en la direccion 0x0F.
+						writeI2C(0x0F,0x88);
+						//writeI2C(0x0F,0x88);
+
+						rtc = readI2C(bufRtc);
+						if(rtc != -1){
+							printData(bufRtc);
+							//saveDataRtc(bufRtc,currentDirectory);
+								//getTimeRtc(time,bufRtc);
+								//time[bits] = 0;
+								//printf("Tiempo RTC %s\n", time);
+
+						}
+					}
+				}
+
+				clock_gettime(CLOCK_MONOTONIC, &end);
+
+				diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
+				printf("Tiempo nanosegundos = %llu ns\n", (long long unsigned int) diff);
+				printf("Tiempo milisegundos = %llu ms\n", (long long unsigned int) diff/1000000);
+
+			}
+			else{
+				if(flag == 1){
+					if(getValue(&gpio68_SYNC) == LOW){
+						printf("Low pps.\n");
+						printf("Con RTC.\n");
+						// Es necesario reinicar la bandera de la alarma en la direccion 0x0F.
+						writeI2C(0x0F,0x88);
+						//writeI2C(0x0F,0x88);
+
+						rtc = readI2C(bufRtc);
+						if(rtc != -1){
+							printData(bufRtc);
+							//saveDataRtc(bufRtc,currentDirectory);
+								//getTimeRtc(time,bufRtc);
+								//time[bits] = 0;
+								//printf("Tiempo RTC %s\n", time);
+
+						}
+					}
+				}
+			}
+		}
+
+}
+
+int readAnalogInputsAndSaveData(char * date, char * time){
+
+	char recvX[6] = {0x00,};
+	char recvY[6] = {0x00,};
+	char recvZ[6] = {0x00,};
+
+	double xx = 0, yy = 0, zz = 0;
+
+	createDirRtc(currentDirectory, date, time);
+	int count = 0;
+	FILE * sampleFile = fopen (currentDirectory, "a");
+	fprintf(sampleFile,"date: %s, hour: %s\n",date, time);
+
+	/*if(getValue(&gpio26_PPS) == HIGH){
+		printf("PPS ES ALTA");
+		return 0;
+	}
+	else{
+		printf("PPS ES BAJA");
+		return 0;
+	}*/
+
+	while(count < 200){
+
+		printf("inicio count %d\n", count);
+
+		readAIN2_3(recvX);
+		readAIN4_5(recvY);
+		readAIN6_7(recvZ);
+		//printf("\n");
+		xx = getVoltage(recvX);
+		yy = getVoltage(recvY);
+		zz = getVoltage(recvZ);
+
+		fprintf(sampleFile,"Counter: %d | X: %lf | Y:%lf | Z: %lf\n",count, xx,yy,zz);
+		count++;
+
+	}
+
+	fclose(sampleFile);
+	return 0;
+}
+
+
+
+void createDirRtc(char *dir, char * date, char *time){
+	char fecha[100] = {0};
+	struct stat st = {0};
+	sprintf(fecha,"%s/%s",SAMPLES_DIR_R,date);
+
+	if (stat(SAMPLES_DIR_R, &st) == -1) {
+	    mkdir(SAMPLES_DIR_R, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+	}
+
+	if (stat(fecha, &st) == -1) {
+	    mkdir(fecha, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+	}
+
+	if(dir[0] == 0){
+		sprintf(dir,"%s/%s/%s_%c%c0000.txt",SAMPLES_DIR_R,date,date,time[0],time[1]);
+		FILE *archivo = fopen (dir, "a");
+		fclose(archivo);
+	}
+	else if (time[2]=='0' && time[3]=='0' && time[4]=='0' && time[5]=='0'){ //Nueva Hora
+		sprintf(dir,"%s/%s/%s_%c%c%c%c%c%c.txt",SAMPLES_DIR_R,date,date,time[0],time[1],time[2],time[3],time[4],time[5]);
+		FILE *archivo = fopen (dir, "a");
+		fclose(archivo);
+	}
+	printf("Dir: %s\n", dir);
 }
