@@ -419,6 +419,11 @@ int getLat(char * buffer, char * RMC_NEMEA){
 	buffer[i] = RMC_NEMEA[30]; //Añadimos el indicador de N o S ubicados en la posicion 28, generando cadena de 10 bits.
 	i++;
 	buffer[i] = 0;
+
+	if(buffer[0] == '0' && buffer[1] == '0' &&  buffer[2] == '0' && buffer[3] == '0'){
+		return -1; // verifica que se haya capturado la latitud
+	}
+
 	return i; // # bits
 
 }
@@ -435,6 +440,11 @@ int getLng(char * buffer, char * RMC_NEMEA){
 	buffer[i] = RMC_NEMEA[43]; //Añadimos el indicador de W o E ubicados en la posicion 41, generando cadena de 11 bits.
 	i++;
 	buffer[i] = 0;
+
+	if(buffer[0] == '0' && buffer[1] == '0' &&  buffer[2] == '0' && buffer[3] == '0'){
+		return -1; // verifica que se haya capturado la longitud
+	}
+
 	return i; // # bits
 
 }
