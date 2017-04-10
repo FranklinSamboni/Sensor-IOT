@@ -12,16 +12,36 @@
 #include "libs/RTC/rtc.h"
 #include "libs/GPIO/gpio.h"
 #include "libs/SOCKET/socketlib.h"
-
+#include "libs/SAC_FILES/sacsubc.h"
 /*
  * Directions INPUT, OUTPUT
  * Values LOW, HIGH
  * 	*/
 
+/*
+ * Usar 0x?A o 0x?B en el registro MODE2 del adc para conseguir valores de 200 muestras por segundo.
+ * Usar 0x?9 en el registro MODE2 del adc para conseguir valores de 160 muestras por segundo.
+ * Usar 0x?8 en el registro MODE2 del adc para conseguir valores de 80 muestras por segundo.
+ */
+
 #define SAMPLES_DIR_R "muestras"
 #define BILLION 1000000000L
 
-char currentDirectory[100] = {0};
+char currentDirectoryX[100] = {0};
+char currentDirectoryY[100] = {0};
+char currentDirectoryZ[100] = {0};
+
+char axisX[] = "BH2";
+char axisY[] = "BH1";
+char axisZ[] = "BHZ";
+
+/*float dt = 0.005 ;
+int npts = 0;
+int dataNumber = 200;*/
+
+// de la libreria de sacsub.h se agregaron para mantener orden en los datos.
+fullDate strFullDate;
+depValues strDepValues;
 
 gpioParams gpio68_SYNC; // para RTC
 gpioParams gpio26_PPS; // para GPS
@@ -55,9 +75,20 @@ void readAndSaveData();
 
 void readWithRTC();
 
-int readAnalogInputsAndSaveData(char * date, char * time);
+int readAnalogInputsAndSaveData(char * date, char * time, int isGPS);
 
-void createDirRtc(char *dir, char * date, char *time);
+void createDirRtc(char *dir, char *axis,char * date, char *time, int isGPS);
+
+void writeSac(int npts, int numData, float *arr, float dt, char *axis ,char *filename);
+
+void initDataofSamples(char * date, char *time, int isGPS);
+
+
+void readADC_Prueba();
+
+void readDataPrueba(float * dataX, float * dataY, float * dataZ);
+
+void read_prueba_solo_pps();
 
 int main(){
 
@@ -77,10 +108,11 @@ int main(){
 	setDirection(INPUT, &gpio26_PPS);
 
 	// Conectando al servidor
-
+	printf("abriendosocket\n");
 	if(openSOCKET(SERVER_IP,SOCKET_PORT)< 0){
 		exit(0);
 	}
+	printf("abriendo  UART\n");
 
 	//TASA DE BAUDIOS D3 DE = B115200
 	if(openUART(3,DEVICE_UART)< 0){
@@ -116,7 +148,9 @@ int main(){
 			printf ("JSON string: %s.\n", bufSock);
 			json_object * jobj = json_tokener_parse(bufSock);
 			printf ("Status: %d.\n", getStatus(jobj));
-			readAndSaveData();
+			//readAndSaveData();
+			//readADC_Prueba();
+			read_prueba_solo_pps();
 		}else{
 			printf ("Error socket.\n");
 		}
@@ -390,13 +424,72 @@ int getStatus(json_object * jobj) {
 	return status;
 }
 
-void readAndSaveData(){
+
+void read_prueba_solo_pps(){
+
+	float dataX[1000] = {0};
+	float dataY[1000] = {0};
+	float dataZ[1000] = {0};
+
+	int num_data = 0;
+	int reading_ADC = 0;
+
+	int iii = 0;
+	int gggg = 0;
+	while(1){
+
+		//if(getValue(&gpio26_PPS) == HIGH){
+		if(getValue(&gpio68_SYNC) == LOW){
+			gggg = gggg + 1;
+			printf("\nggggg es  %d \n", gggg);
+			printf("\n ----- Senial pps ------- \n");
+			writeI2C(0x0F,0x88);
+			reading_ADC = 1;
+
+			/*iii = 0;
+			while(iii<num_data){
+				printf("Counter: %d | X: %lf | Y:%lf | Z: %lf\n",iii, dataX[iii],dataY[iii],dataZ[iii]);
+				iii = iii + 1;
+			}*/
+
+			printf("Numero de datos: %d.\n", num_data);
+
+			num_data = 0;
+
+			printf("Comenzo Lectura pruebas.\n");
+			readDataPrueba(&dataX[num_data],&dataY[num_data],&dataZ[num_data]);
+			printf("Counter: %d | X: %lf | Y:%lf | Z: %lf\n",num_data, dataX[num_data],dataY[num_data],dataZ[num_data]);
+			num_data = num_data + 1;
+
+		}
+		else{
+			//gggg = 0;
+			//printf("low\n");
+			if(reading_ADC == 1){
+				readDataPrueba(&dataX[num_data],&dataY[num_data],&dataZ[num_data]);
+				//printf("Counter: %d | X: %lf | Y:%lf | Z: %lf\n",num_data, dataX[num_data],dataY[num_data],dataZ[num_data]);
+				//printf("Counter: %d\n",num_data);
+				num_data = num_data + 1;
+			}
+		}
+	}
+
+}
+
+void readADC_Prueba(){
 
 	char buf[255] = {0};
 	char bufTime[15] = {0}, bufDate[10] = {0}, bufLat[15] = {0};
 	int flag = 0;
 	int gps = 0;
 	int isData = 0;
+
+	float dataX[1000] = {0};
+	float dataY[1000] = {0};
+	float dataZ[1000] = {0};
+
+	int num_data = 0;
+	int reading_ADC = 0;
 
 	uint64_t diff;
 	struct timespec start, end;
@@ -405,7 +498,9 @@ void readAndSaveData(){
 	double count_PPS = 0.0;
 
 	inicio = time(NULL);
+	int isGPS = 1;
 
+	int iii = 0;
 	while(1){
 
 
@@ -428,12 +523,150 @@ void readAndSaveData(){
 						//bits = getLat(data.lat,buffer);
 						//bits = getLng(data.lng,buffer);
 					}
-					//saveDataGps(buf,currentDirectory); // Guardar en archivo de texto.
 					gps = readUART(buf);
 				}
 				if(isData != -1){
 					if(bufDate[0] != 0 && bufTime[0] != 0){
-						readAnalogInputsAndSaveData(bufDate, bufTime);
+
+						reading_ADC = 1;
+
+						/*iii = 0;
+						while(iii<num_data){
+							printf("Counter: %d | X: %lf | Y:%lf | Z: %lf\n",iii, dataX[iii],dataY[iii],dataZ[iii]);
+							iii = iii + 1;
+						}*/
+						printf("Numero de datos: %d.\n", num_data);
+
+						num_data = 0;
+
+						printf("Comenzo Lectura pruebas.\n");
+						readDataPrueba(&dataX[num_data],&dataY[num_data],&dataZ[num_data]);
+						printf("Counter: %d | X: %lf | Y:%lf | Z: %lf\n",num_data, dataX[num_data],dataY[num_data],dataZ[num_data]);
+						num_data = num_data + 1;
+						//// AQUI HAY QUE LEER EL ADC CON GPS
+					}
+				}
+				else{
+					if(getValue(&gpio68_SYNC) == LOW){
+						flag = 1;
+						//// AQUI HAY QUE LEER CON RTC
+						readWithRTC();
+					}
+				}
+			}
+			else{
+				if(getValue(&gpio68_SYNC) == LOW){
+					flag = 1;
+					//// AQUI HAY QUE LEER CON RTC
+					readWithRTC();
+				}
+			}
+
+			clock_gettime(CLOCK_MONOTONIC, &end);
+
+			diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
+			printf("Tiempo milisegundos = %llu ms\n", (long long unsigned int) diff/1000000);
+		}
+		else{
+
+			if(reading_ADC == 1){
+				readDataPrueba(&dataX[num_data],&dataY[num_data],&dataZ[num_data]);
+				//printf("Counter: %d | X: %lf | Y:%lf | Z: %lf\n",num_data, dataX[num_data],dataY[num_data],dataZ[num_data]);
+				//printf("Counter: %d\n",num_data);
+				num_data = num_data + 1;
+			}
+
+			/*
+			fin = time(NULL);
+			count_PPS = difftime(fin,inicio);
+
+			if(flag == 1 || count_PPS > 4.0){
+				if(getValue(&gpio68_SYNC) == LOW){
+					clock_gettime(CLOCK_MONOTONIC, &start);
+					printf("Low pps.\n");
+					//// AQUI HAY QUE LEER CON RTC
+					readWithRTC();
+					clock_gettime(CLOCK_MONOTONIC, &end);
+					diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
+					printf("Tiempo milisegundos = %llu ms\n", (long long unsigned int) diff/1000000);
+				}
+			}*/
+		}
+	}
+
+}
+
+void readDataPrueba(float * dataX, float * dataY, float * dataZ){
+
+	char recvX[6] = {0x00,};
+	char recvY[6] = {0x00,};
+	char recvZ[6] = {0x00,};
+
+    float adc_countX = 0;
+    float adc_countY = 0;
+    float adc_countZ = 0;
+
+	readAIN2_3(recvX);
+	readAIN4_5(recvY);
+	readAIN6_7(recvZ);
+
+	adc_countX = (float) (((unsigned long)recvX[1]<<24)|((unsigned long)recvX[2]<<16)|(recvX[3]<<8)|recvX[4]);
+	adc_countY = (float) (((unsigned long)recvY[1]<<24)|((unsigned long)recvY[2]<<16)|(recvY[3]<<8)|recvY[4]);
+	adc_countZ = (float) (((unsigned long)recvZ[1]<<24)|((unsigned long)recvZ[2]<<16)|(recvZ[3]<<8)|recvZ[4]);
+
+	*dataX = adc_countX;
+	*dataY = adc_countY;
+	*dataZ = adc_countZ;
+
+}
+
+
+//////////////////////////////////////////////////// SEPARADOR ///////////////////////////////////////////////
+
+void readAndSaveData(){
+
+	char buf[255] = {0};
+	char bufTime[15] = {0}, bufDate[10] = {0}, bufLat[15] = {0};
+	int flag = 0;
+	int gps = 0;
+	int isData = 0;
+
+	uint64_t diff;
+	struct timespec start, end;
+
+	time_t inicio,fin;
+	double count_PPS = 0.0;
+
+	inicio = time(NULL);
+	int isGPS = 1;
+	while(1){
+
+
+		if(getValue(&gpio26_PPS) == HIGH){
+			inicio = time(NULL);
+			clock_gettime(CLOCK_MONOTONIC, &start);
+
+			printf("\n ----- Senial pps ------- \n");
+			gps = readUART(buf);
+			if(gps != -1){
+				while(gps != -1){
+					flag = 0;
+					printBuffer(gps,buf);
+					if(isRMC(buf) == 1) {
+						getTimeGps(bufTime,buf);
+						getDateGps(bufDate,buf);
+
+						isData = getLat(bufLat,buf);
+						break;
+						//bits = getLat(data.lat,buffer);
+						//bits = getLng(data.lng,buffer);
+					}
+					gps = readUART(buf);
+				}
+				if(isData != -1){
+					if(bufDate[0] != 0 && bufTime[0] != 0){
+
+						readAnalogInputsAndSaveData(bufDate, bufTime,isGPS);
 					}
 				}
 				else{
@@ -482,33 +715,39 @@ void readWithRTC(){
 	char time[10] = {0};
 	char date[10] = {0};
 	int rtc = 0;
+	int isGPS = 0;
 	printf("Con RTC.\n");
 	// Es necesario reinicar la bandera de la alarma en la direccion 0x0F.
 	writeI2C(0x0F,0x88);
-	//writeI2C(0x0F,0x88);
 
 	rtc = readI2C(bufRtc);
 	if(rtc != -1){
 		printData(bufRtc);
 		getTimeRtc(time,bufRtc);
 		getDateRtc(date,bufRtc);
-		readAnalogInputsAndSaveData(date,time);
+		readAnalogInputsAndSaveData(date,time,isGPS);
 	}
 }
 
-int readAnalogInputsAndSaveData(char * date, char * time){
+int readAnalogInputsAndSaveData(char * date, char * time, int isGPS){
 
 	char recvX[6] = {0x00,};
 	char recvY[6] = {0x00,};
 	char recvZ[6] = {0x00,};
 
-	double xx = 0, yy = 0, zz = 0;
+    float adc_countX = 0;
+    float adc_countY = 0;
+    float adc_countZ = 0;
 
-	createDirRtc(currentDirectory, date, time);
+	float dataX[200] = {0};
+	float dataY[200] = {0};
+	float dataZ[200] = {0};
+
+	createDirRtc(currentDirectoryX, axisX, date, time, isGPS);
+	createDirRtc(currentDirectoryY, axisY, date, time, isGPS);
+	createDirRtc(currentDirectoryZ, axisZ, date, time, isGPS);
+
 	int count = 0;
-	FILE * sampleFile = fopen (currentDirectory, "a");
-	fprintf(sampleFile,"date: %s, hour: %s\n",date, time);
-
 	/*if(getValue(&gpio26_PPS) == HIGH){
 		printf("PPS ES ALTA");
 		return 0;
@@ -518,7 +757,7 @@ int readAnalogInputsAndSaveData(char * date, char * time){
 		return 0;
 	}*/
 	printf("Capturando datos ADC\n");
-	while(count < 200){
+	while(count < strDepValues.dataNumber){
 
 		//printf("inicio count %d\n", count);
 
@@ -526,22 +765,37 @@ int readAnalogInputsAndSaveData(char * date, char * time){
 		readAIN4_5(recvY);
 		readAIN6_7(recvZ);
 		//printf("\n");
-		xx = getVoltage(recvX);
-		yy = getVoltage(recvY);
-		zz = getVoltage(recvZ);
 
-		fprintf(sampleFile,"Counter: %d | X: %lf | Y:%lf | Z: %lf\n",count, xx,yy,zz);
+		adc_countX = (float) (((unsigned long)recvX[1]<<24)|((unsigned long)recvX[2]<<16)|(recvX[3]<<8)|recvX[4]);
+		adc_countY = (float) (((unsigned long)recvY[1]<<24)|((unsigned long)recvY[2]<<16)|(recvY[3]<<8)|recvY[4]);
+		adc_countZ = (float) (((unsigned long)recvZ[1]<<24)|((unsigned long)recvZ[2]<<16)|(recvZ[3]<<8)|recvZ[4]);
+
+		dataX[count] = adc_countX;
+		dataY[count] = adc_countY;
+		dataZ[count] = adc_countZ;
+
+		/*xx = getVoltage(recvX);
+		yy = getVoltage(recvY);
+		zz = getVoltage(recvZ);*/
+
+		//printf("Counter: %d | X: %lf | Y:%lf | Z: %lf\n",count, adc_countX,adc_countY,adc_countZ);
 		count++;
 
 	}
+
+	strDepValues.npts = strDepValues.npts + strDepValues.dataNumber;
+
+	writeSac(strDepValues.npts,strDepValues.dataNumber,dataX,strDepValues.dt,axisX,currentDirectoryX);
+	writeSac(strDepValues.npts,strDepValues.dataNumber,dataY,strDepValues.dt,axisY,currentDirectoryY);
+	writeSac(strDepValues.npts,strDepValues.dataNumber,dataZ,strDepValues.dt,axisZ,currentDirectoryZ);
+
 	printf("Termino camptura de datos ADC\n");
-	fclose(sampleFile);
+	//fclose(sampleFile);
+	count = 0;
 	return 0;
 }
 
-
-
-void createDirRtc(char *dir, char * date, char *time){
+void createDirRtc(char *dir, char *axis,char * date, char *time, int isGPS){
 	char fecha[100] = {0};
 	struct stat st = {0};
 	sprintf(fecha,"%s/%s",SAMPLES_DIR_R,date);
@@ -555,14 +809,123 @@ void createDirRtc(char *dir, char * date, char *time){
 	}
 
 	if(dir[0] == 0){
-		sprintf(dir,"%s/%s/%s_%c%c0000.txt",SAMPLES_DIR_R,date,date,time[0],time[1]);
-		FILE *archivo = fopen (dir, "a");
-		fclose(archivo);
+		sprintf(dir,"%s/%s/%s%s_%c%c0000.sac",SAMPLES_DIR_R,date,axis,date,time[0],time[1]);
+		initDataofSamples(date,time,isGPS);
+		createFile(dir);
+
 	}
 	else if (time[2]=='0' && time[3]=='0' && time[4]=='0' && time[5]=='0'){ //Nueva Hora
-		sprintf(dir,"%s/%s/%s_%c%c%c%c%c%c.txt",SAMPLES_DIR_R,date,date,time[0],time[1],time[2],time[3],time[4],time[5]);
-		FILE *archivo = fopen (dir, "a");
-		fclose(archivo);
+		sprintf(dir,"%s/%s/%s%s_%c%c%c%c%c%c.sac",SAMPLES_DIR_R,date,axis,date,time[0],time[1],time[2],time[3],time[4],time[5]);
+		initDataofSamples(date,time,isGPS);
+		createFile(dir);
+
 	}
 	printf("Dir: %s\n", dir);
 }
+
+void initDataofSamples(char * date, char *time, int isGPS){
+	char year[2] = {0};
+	char month[2] = {0};
+	char day[2] = {0};
+
+	char hour[2] = {0};
+	char min[2] = {0};
+	char seg[2] = {0};
+	char mseg[3] = {0};
+
+	// Se guarda en un array cuando dias hay desde el primero de enero hasta un mes.
+	//int numeroDiasPorMes[13] = {0,31,28,31,30,31,30  ,31,31,  30,31,30,31};
+	int numeroDiasPorMes[13] = {0,31,59,90,120,151,181,212,243,273,304,334,365};
+	year[0] = date[4];
+	year[1] = date[5];
+
+	month[0] = date[2];
+	month[1] = date[3];
+
+	day[0] = date[0];
+	day[1] = date[1];
+
+	hour[0] = time[0];
+	hour[1] = time[1];
+
+	min[0] = time[2];
+	min[1] = time[3];
+
+	seg[0] = time[4];
+	seg[1] = time[5];
+
+	if(isGPS == 1){
+		mseg[0] = time[7];
+		mseg[1] = time[8];
+		mseg[2] = time[9];
+	}
+
+	strFullDate.year = 2000 + atoi(year);
+	strFullDate.month = atoi(month);
+
+	strFullDate.day = numeroDiasPorMes[strFullDate.month - 1] + atoi(day);
+
+	strFullDate.hour = atoi(hour);
+	strFullDate.min = atoi(min);
+	strFullDate.seg = atoi(seg);
+	strFullDate.mseg = atoi(mseg);
+
+	// se reinician el numero de muestras para que comience a contar nuevamente en el siguiente archivo
+	strDepValues.npts = 0;
+	strDepValues.dt = 0.005;
+	strDepValues.dataNumber = 200;
+	/// se definene los valores de DELTA, NTPS, y dataNumber que es el numero de datos por segundo
+	// este no se incluye como tan en el archivo.
+}
+
+void writeSac(int npts, int dataNumber, float *arr, float dt, char *axis ,char *filename)
+{
+        /* create the SAC file
+           instead of using the wsac1 I will use the lower level
+           routines to provide more control on the output */
+        int nerr;
+        float b, e;
+        //float depmax, depmin, depmen;
+        /* get the extrema of the trace */
+        printf("antes de scmxmn\n");
+        		//scmxmn(arr,npts,&depmax,&depmin,&depmen);
+                scmxmn(arr,dataNumber,&strDepValues.depmax,&strDepValues.depmin,&strDepValues.depmen);
+        //printf("despues de scmxmn y antes de newhdr\n");
+        /* create a new header for the new SAC file */
+                newhdr();
+        //printf("despues de newhdr y antes de los set \n");
+        /* set some header values */
+                setfhv("DEPMAX", strDepValues.depmax, &nerr);
+                setfhv("DEPMIN", strDepValues.depmin, &nerr);
+                setfhv("DEPMEN", strDepValues.depmen, &nerr);
+                setnhv("NPTS    ",npts,&nerr);
+                setfhv("DELTA   ",dt  ,&nerr);
+                b = 0;
+                setfhv("B       ",b  ,&nerr);
+                setihv("IFTYPE  ","ITIME   ",&nerr);
+                e = b + (npts -1 )*dt;
+                setfhv("E       ",e     ,&nerr);
+                setlhv("LEVEN   ",1,&nerr);
+                setlhv("LOVROK  ",1,&nerr);
+                setlhv("LCALDA  ",1,&nerr);
+        /* put is a default time for the plot */
+                setnhv("NZYEAR", strFullDate.year, &nerr);
+                setnhv("NZJDAY", strFullDate.day, &nerr);
+                setnhv("NZHOUR", strFullDate.hour, &nerr);
+                setnhv("NZMIN" , strFullDate.min, &nerr);
+                setnhv("NZSEC" , strFullDate.seg, &nerr);
+                setnhv("NZMSEC", strFullDate.mseg, &nerr);
+
+                setkhv("KNETWK", "MEC",&nerr);
+                setkhv("KSTNM", "POP",&nerr);
+                setkhv("KCMPNM", axis,&nerr);
+        /* output the SAC file */
+         //printf("despues de los set y antes de updateHeaders \n");
+                updateHeaders(filename);
+         //printf("despues de updateHeaders y antes de updateData \n");
+        		updateData(filename,dataNumber,arr);
+                //updateData(filename,npts,arr);
+                //bwsac(npts,filename,arr);
+                printf("metodo\n");
+}
+

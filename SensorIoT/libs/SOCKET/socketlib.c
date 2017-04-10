@@ -10,9 +10,10 @@ socketStr sock;
 int openSOCKET(char * host_ip, int port){
 
 	struct in_addr ipv4addr;
-	struct hostent *host;
+	struct hostent *host = NULL;
 
 	sock.sockfd = socket(AF_INET, SOCK_STREAM, 0);
+
     if (sock.sockfd < 0) {
         errorSocket("Error Abriendo Socket.");
         return -1;
@@ -20,18 +21,18 @@ int openSOCKET(char * host_ip, int port){
 
     inet_pton(AF_INET, host_ip, &ipv4addr); // host_ip -> Dirección ip del servidor.
     host = gethostbyaddr(&ipv4addr, sizeof(ipv4addr), AF_INET);
-    printf("Host name: %s\n", host->h_name);
+
     if (host == NULL) {
     	errorSocket("No se ha encontrado el host especificado.");
     	return -1;
     }
+    printf("Host name: %s\n", host->h_name);
 
     bzero((char *) &sock.serv_addr, sizeof(sock.serv_addr));
 
     bcopy((char *)host->h_addr, (char *)&sock.serv_addr.sin_addr.s_addr,host->h_length);
     sock.serv_addr.sin_family = AF_INET;
     sock.serv_addr.sin_port = htons(port);
-
     if (connect(sock.sockfd,(struct sockaddr *) &sock.serv_addr,sizeof(sock.serv_addr)) < 0) {
     	errorSocket("Error conectando socket.");
         return -1;

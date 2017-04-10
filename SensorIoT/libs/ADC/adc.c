@@ -103,6 +103,7 @@ void settingADC(){
 	usleep(10);
 
 	//writeRegister(MODE2, 0x08); // PGA disabled y 400 SPS
+	//writeRegister(MODE2, 0x88);
 	writeRegister(MODE2, 0x8F);
 	usleep(10);
 
@@ -291,11 +292,11 @@ int readData(char * recvBuffer){
 
 int readAINx(char * recvBuffer){
 	Start_HIGH();
-	usleep(1);
+	//usleep(1);
+	Start_LOW();
 	int ret = -1;
 	while(1){
 		if(getValue(&pinDrdy) == LOW){
-			Start_LOW();
 			ret = readData(recvBuffer);
 			break;
 		}
@@ -306,21 +307,21 @@ int readAINx(char * recvBuffer){
 int readAIN2_3(char * recvBuffer){ // PARA LEER LA ENTRADA AINP Y AINN CONFIGURADAS EN EL REGISTRO DE INPMUX
 
 	Start_LOW();
-	usleep(5);
+	//usleep(1);
 	writeRegister(INPMUX, 0x23); // Select AIN2 como AINP Y AIN3 COMO AINN
 	return readAINx(recvBuffer);
 }
 
 int readAIN4_5(char * recvBuffer){
 	Start_LOW();
-	usleep(5);
+	//usleep(1);
 	writeRegister(INPMUX, 0x45); // Select AIN4 como AINP Y AIN5 COMO AINN
 	return readAINx(recvBuffer);
 }
 
 int readAIN6_7(char * recvBuffer){
 	Start_LOW();
-	usleep(5);
+	//usleep(1);
 	writeRegister(INPMUX, 0x67); // Select AIN6 como AINP Y AIN7 COMO AINN
 	return readAINx(recvBuffer);
 }

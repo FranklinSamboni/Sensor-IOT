@@ -107,7 +107,7 @@ char checkSum(int pl, char * payload){
 }
 
 int setFactoryDefaults(){
-	printf("Restaurando datos de fábrica.\n");
+	printf("Restaurando datos de fÃ¡brica.\n");
 	char buffer[9] = {0};
 	char payload[2] = {0};
 	int res;
@@ -144,7 +144,7 @@ int configureSerialPort(int bauds){
 		payload[2] = options[bauds]; // Tasa de baudios
 	}
 	else{
-		errorGps("Opción incorrecta, Elige 0 para 4800,1 para 9600,2 para 38400,3 para 115200");
+		errorGps("OpciÃ³n incorrecta, Elige 0 para 4800,1 para 9600,2 para 38400,3 para 115200");
 		return -1;
 	}
 	payload[3] = 0x00; // 0x01 -> actualizar en la SRAM y FLASH -- 0x00 -> solo en SRAM.
@@ -285,23 +285,23 @@ void printBuffer(int size, char * buffer){
 
 void saveDataGps(char * buffer, char * dir){
 
-	int bits = 0;
+	int bytes = 0;
 	if(isGGA(buffer) == 1){
-		bits = getAlt(data.alt,buffer);
-		if(bits != -1){
-			data.alt[bits] = 0;
+		bytes = getAlt(data.alt,buffer);
+		if(bytes != -1){
+			data.alt[bytes] = 0;
 		}
 
 	}
 	else if(isRMC(buffer) == 1) {
-		bits = getTimeGps(data.time,buffer);
-		data.time[bits] = 0;
-		bits = getLat(data.lat,buffer);
-		data.lat[bits] = 0;
-		bits = getLng(data.lng,buffer);
-		data.lng[bits] = 0;
-		bits = getDateGps(data.date,buffer);
-		data.date[bits] = 0;
+		bytes = getTimeGps(data.time,buffer);
+		data.time[bytes] = 0;
+		bytes = getLat(data.lat,buffer);
+		data.lat[bytes] = 0;
+		bytes = getLng(data.lng,buffer);
+		data.lng[bytes] = 0;
+		bytes = getDateGps(data.date,buffer);
+		data.date[bytes] = 0;
 	}
 
 	if(data.date[0] != 0 && data.time[0] != 0){
@@ -386,11 +386,11 @@ int getTimeGps(char * buffer, char * RMC_NEMEA){
 
 	int i=0;
 	while(i<10){
-		buffer[i] = RMC_NEMEA[i+7];  // El tiempo comienza en la posición 7 y su longitud es de 10 bits.
+		buffer[i] = RMC_NEMEA[i+7];  // El tiempo comienza en la posiciÃ³n 7 y su longitud es de 10 bytes.
 		i++;
 	}
 	buffer[i] = 0;
-	return i; // # bits
+	return i; // # bytes
 
 }
 
@@ -399,11 +399,11 @@ int getDateGps(char * buffer, char * RMC_NEMEA){
 
 	int i=0;
 	while(i<6){
-		buffer[i] = RMC_NEMEA[i+57]; // La fecha comienza en la posición 57 y su longitud es de 6 bits.
+		buffer[i] = RMC_NEMEA[i+57]; // La fecha comienza en la posiciÃ³n 57 y su longitud es de 6 bytes.
 		i++;
 	}
 	buffer[i] = 0;
-	return i; // # bits
+	return i; // # bytes
 
 }
 
@@ -412,11 +412,11 @@ int getLat(char * buffer, char * RMC_NEMEA){
 
 	int i=0;
 	while(i<9){
-		buffer[i] = RMC_NEMEA[i+20];  // La latitud comienza en la posición 18 y su longitud es de 9 bits.
+		buffer[i] = RMC_NEMEA[i+20];  // La latitud comienza en la posiciÃ³n 18 y su longitud es de 9 bytes.
 		i++;
 	}
 
-	buffer[i] = RMC_NEMEA[30]; //Añadimos el indicador de N o S ubicados en la posicion 28, generando cadena de 10 bits.
+	buffer[i] = RMC_NEMEA[30]; //AÃ±adimos el indicador de N o S ubicados en la posicion 28, generando cadena de 10 bytes.
 	i++;
 	buffer[i] = 0;
 
@@ -424,7 +424,7 @@ int getLat(char * buffer, char * RMC_NEMEA){
 		return -1; // verifica que se haya capturado la latitud
 	}
 
-	return i; // # bits
+	return i; // # bytes
 
 }
 
@@ -433,11 +433,11 @@ int getLng(char * buffer, char * RMC_NEMEA){
 
 	int i=0;
 	while(i<10){
-		buffer[i] = RMC_NEMEA[i+32];  // La longitud comienza en la posición 30 y su longitud es de 10 bits.
+		buffer[i] = RMC_NEMEA[i+32];  // La longitud comienza en la posiciÃ³n 30 y su longitud es de 10 bytes.
 		i++;
 	}
 
-	buffer[i] = RMC_NEMEA[43]; //Añadimos el indicador de W o E ubicados en la posicion 41, generando cadena de 11 bits.
+	buffer[i] = RMC_NEMEA[43]; //AÃ±adimos el indicador de W o E ubicados en la posicion 41, generando cadena de 11 bytes.
 	i++;
 	buffer[i] = 0;
 
@@ -445,7 +445,7 @@ int getLng(char * buffer, char * RMC_NEMEA){
 		return -1; // verifica que se haya capturado la longitud
 	}
 
-	return i; // # bits
+	return i; // # bytes
 
 }
 
@@ -459,9 +459,10 @@ int getAlt(char * buffer, char * GGA_NEMEA){
 
 	int i=0;
 	while(i<6){
-		buffer[i] = GGA_NEMEA[i+52];  // La altitud comienza en la posición 52 y su longitud es de 6 bits.
+		buffer[i] = GGA_NEMEA[i+52];  // La altitud comienza en la posiciÃ³n 52 y su longitud es de 6 bytes.
 		i++;
 	}
 	buffer[i] = 0;
-	return i; // # bits
+	return i; // # bytes
 }
+

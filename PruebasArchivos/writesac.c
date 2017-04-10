@@ -5,7 +5,7 @@
    through a lowpass recursive digital filter
 */
 /* define the maximum number of points  and the two float arrays */
-#define NPTS 100
+#define NPTS 200
 float x[NPTS];
 float y[NPTS];
 
@@ -15,8 +15,9 @@ int main()
 {
 	printf("inicio\n");
         int i;
-        float dt = 0.01 ;
+        float dt = 0.005 ;
         int offset = 10;
+        int offset2 = 90;
         float wc=31.415927;
         float f,a,b;
         f = 2./(dt*wc);
@@ -26,6 +27,7 @@ int main()
         for(i=0;i< NPTS;i++)
                 x[i] = 0.0;
         x[offset] = 1.0/dt ;
+        x[offset2] = 1.0/dt ;
         /* now apply a recursive digital filter to create the
            output */
         y[0] = 0.0;
@@ -62,12 +64,16 @@ void outputsac(int npts, float *arr, float dt, char *filename)
                 setlhv("LOVROK  ",1,&nerr);
                 setlhv("LCALDA  ",1,&nerr);
         /* put is a default time for the plot */
-                setnhv("NZYEAR", 1970, &nerr);
-                setnhv("NZJDAY", 1, &nerr);
-                setnhv("NZHOUR", 0, &nerr);
-                setnhv("NZMIN" , 0, &nerr);
-                setnhv("NZSEC" , 0, &nerr);
-                setnhv("NZMSEC", 0, &nerr);
+                setnhv("NZYEAR", 2017, &nerr);
+                setnhv("NZJDAY", 2, &nerr);
+                setnhv("NZHOUR", 1, &nerr);
+                setnhv("NZMIN" , 1, &nerr);
+                setnhv("NZSEC" , 1, &nerr);
+                setnhv("NZMSEC", 1, &nerr);
+
+                setkhv("KNETWK", "MEC",&nerr);
+                setkhv("KSTNM", "POP",&nerr);
+                setkhv("KCMPNM", "BHZ",&nerr);
         /* output the SAC file */
                 bwsac(npts,filename,arr);
                 printf("metodo\n");
