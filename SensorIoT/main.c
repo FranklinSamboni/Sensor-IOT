@@ -27,6 +27,14 @@
 #define SAMPLES_DIR_R "muestras"
 #define BILLION 1000000000L
 
+#define MAX_SPS 400
+#define SPS 200
+#define DT 0.005
+
+
+//#define SPS 200
+//#define DT 0.005
+
 char currentDirectoryX[100] = {0};
 char currentDirectoryY[100] = {0};
 char currentDirectoryZ[100] = {0};
@@ -83,12 +91,16 @@ void writeSac(int npts, int numData, float *arr, float dt, char *axis ,char *fil
 
 void initDataofSamples(char * date, char *time, int isGPS);
 
+void subMuestreo_xxx(float *currentData, float *newData, int factor);
+
 
 void readADC_Prueba();
 
 void readDataPrueba(float * dataX, float * dataY, float * dataZ);
 
 void read_prueba_solo_pps();
+
+
 
 int main(){
 
@@ -148,9 +160,9 @@ int main(){
 			printf ("JSON string: %s.\n", bufSock);
 			json_object * jobj = json_tokener_parse(bufSock);
 			printf ("Status: %d.\n", getStatus(jobj));
-			//readAndSaveData();
+			readAndSaveData();
 			//readADC_Prueba();
-			read_prueba_solo_pps();
+			//read_prueba_solo_pps();
 		}else{
 			printf ("Error socket.\n");
 		}
@@ -438,12 +450,12 @@ void read_prueba_solo_pps(){
 	int gggg = 0;
 	while(1){
 
-		//if(getValue(&gpio26_PPS) == HIGH){
-		if(getValue(&gpio68_SYNC) == LOW){
+		if(getValue(&gpio26_PPS) == HIGH){
+		//if(getValue(&gpio68_SYNC) == LOW){
 			gggg = gggg + 1;
 			printf("\nggggg es  %d \n", gggg);
 			printf("\n ----- Senial pps ------- \n");
-			writeI2C(0x0F,0x88);
+			//writeI2C(0x0F,0x88);
 			reading_ADC = 1;
 
 			/*iii = 0;
@@ -739,9 +751,19 @@ int readAnalogInputsAndSaveData(char * date, char * time, int isGPS){
     float adc_countY = 0;
     float adc_countZ = 0;
 
-	float dataX[200] = {0};
-	float dataY[200] = {0};
-	float dataZ[200] = {0};
+	float dataX[MAX_SPS] = {0};
+	float dataY[MAX_SPS] = {0};
+	float dataZ[MAX_SPS] = {0};
+
+	float samplesX[SPS] = {0};
+	float samplesY[SPS] = {0};
+	float samplesZ[SPS] = {0};
+
+	int factor =  MAX_SPS/SPS;
+
+	// FACTOR_SPS_200 = 2
+	//FACTOR_SPS_100 = 4
+	// FACTOR_SPS_50  = 8
 
 	createDirRtc(currentDirectoryX, axisX, date, time, isGPS);
 	createDirRtc(currentDirectoryY, axisY, date, time, isGPS);
@@ -757,7 +779,7 @@ int readAnalogInputsAndSaveData(char * date, char * time, int isGPS){
 		return 0;
 	}*/
 	printf("Capturando datos ADC\n");
-	while(count < strDepValues.dataNumber){
+	while(count < MAX_SPS){
 
 		//printf("inicio count %d\n", count);
 
@@ -782,6 +804,11 @@ int readAnalogInputsAndSaveData(char * date, char * time, int isGPS){
 		count++;
 
 	}
+	//printf("num datos: %d\n",count);
+
+	subMuestreo_xxx(dataX, samplesX, factor);
+	subMuestreo_xxx(dataY, samplesY, factor);
+	subMuestreo_xxx(dataZ, samplesZ, factor);
 
 	strDepValues.npts = strDepValues.npts + strDepValues.dataNumber;
 
@@ -793,6 +820,19 @@ int readAnalogInputsAndSaveData(char * date, char * time, int isGPS){
 	//fclose(sampleFile);
 	count = 0;
 	return 0;
+}
+
+void subMuestreo_xxx(float *currentData, float *newData, int factor){
+
+	int i = 0;
+	int samples = MAX_SPS/factor;
+
+	while (i < samples){
+		newData[i] = currentData[i*factor];
+		//printf("i es %d y el dato tomado es %d\n",i,i*factor);
+		i++;
+	}
+
 }
 
 void createDirRtc(char *dir, char *axis,char * date, char *time, int isGPS){
@@ -872,8 +912,8 @@ void initDataofSamples(char * date, char *time, int isGPS){
 
 	// se reinician el numero de muestras para que comience a contar nuevamente en el siguiente archivo
 	strDepValues.npts = 0;
-	strDepValues.dt = 0.005;
-	strDepValues.dataNumber = 200;
+	strDepValues.dt = DT;
+	strDepValues.dataNumber = SPS;
 	/// se definene los valores de DELTA, NTPS, y dataNumber que es el numero de datos por segundo
 	// este no se incluye como tan en el archivo.
 }
@@ -887,7 +927,7 @@ void writeSac(int npts, int dataNumber, float *arr, float dt, char *axis ,char *
         float b, e;
         //float depmax, depmin, depmen;
         /* get the extrema of the trace */
-        printf("antes de scmxmn\n");
+       // printf("antes de scmxmn\n");
         		//scmxmn(arr,npts,&depmax,&depmin,&depmen);
                 scmxmn(arr,dataNumber,&strDepValues.depmax,&strDepValues.depmin,&strDepValues.depmen);
         //printf("despues de scmxmn y antes de newhdr\n");
@@ -926,6 +966,6 @@ void writeSac(int npts, int dataNumber, float *arr, float dt, char *axis ,char *
         		updateData(filename,dataNumber,arr);
                 //updateData(filename,npts,arr);
                 //bwsac(npts,filename,arr);
-                printf("metodo\n");
+           //     printf("metodo\n");
 }
 
