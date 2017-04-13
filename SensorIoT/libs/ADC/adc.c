@@ -329,7 +329,7 @@ int readAIN6_7(char * recvBuffer){
 double getVoltage(char *ADC_data){
 	unsigned long adc_count = 0;
 	double resolution = 0;
-	double VREF = 3.4;
+	double VREF = 3.4; // Cambiar cuando se cambie la referecia externa.
 	double Vol_V = 0;
 	double Vol_mV = 0;
 
