@@ -109,11 +109,10 @@ int main(){
 	setDirection(INPUT, &gpio26_PPS);
 
 	// Conectando al servidor
-	/*printf("abriendosocket\n");
+	printf("abriendosocket\n");
 	if(openSOCKET(SERVER_IP,SOCKET_PORT)< 0){
 		exit(0);
-	}*/
-	printf("abriendo  UART\n");
+	}
 
 	//TASA DE BAUDIOS 3 DE = B115200
 	if(openUART(3,DEVICE_UART)< 0){
@@ -137,7 +136,7 @@ int main(){
 	checkingPPS();
 	settingRtC();
 
-	//writeSOCKET("Estado: Ready.\n");
+	writeSOCKET("Estado: Ready.\n");
 
 	int fsc = 0;
 	while(1){
