@@ -5,11 +5,11 @@ gpsdir = $(lib)GPS/
 rtcdir = $(lib)RTC/
 gpiodir = $(lib)GPIO/
 socketdir = $(lib)SOCKET/
-MAIN = main.c
+MAIN = sensor.c
 OBJECTS = $(adcdir)adc.o $(gpsdir)gps.o $(rtcdir)rtc.o $(gpiodir)gpio.o $(sacdir)sacsubc.o $(socketdir)socketlib.o
 
 main : $(OBJECTS)
-	gcc $(MAIN) -o main $(OBJECTS) -lrt -l json
+	gcc $(MAIN) -o sensor $(OBJECTS) -lrt -l json
 
 $(sacdir)sacsubc.o : $(sacdir)sacsubc.c $(sacdir)
 	gcc -o $(sacdir)sacsubc.o -c $(sacdir)sacsubc.c
