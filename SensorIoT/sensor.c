@@ -129,7 +129,7 @@ int main(){
 
 	settingPins(); // configurar pines de control del ADC
 	settingADC();
-	componentsFile();
+	//componentsFile();
 
 	//setFactoryDefaults();
 	loadingGpsData();
@@ -161,7 +161,7 @@ int main(){
 	desactiveAlarmRtc();
 	closeUART();
 	closeI2C();
-	//closeSOCKET();
+	closeSOCKET();
 	closeSPI();
 
 	return 0;
@@ -174,7 +174,7 @@ void signal_handler(int sig){
 	desactiveAlarmRtc();
 	closeUART();
 	closeI2C();
-	//closeSOCKET();
+	closeSOCKET();
 }
 
 void componentsFile(){

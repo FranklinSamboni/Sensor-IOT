@@ -55,7 +55,8 @@ int readSOCKET(char * buffer){
 
 int writeSOCKET(const char * buffer){
 	int res = 0;
-
+	//int len = strlen(buffer);
+	//buffer[len] = 0x0A; /// \n pone el ultimo en 0x0A para indicar una nueva linea;
 	res = send(sock.sockfd , buffer , strlen(buffer) , 0);
 
 	if (res < 0){

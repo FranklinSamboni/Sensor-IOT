@@ -1,15 +1,22 @@
 lib = libs/
+testsDir = tests/
+
 sacdir = $(lib)SAC_FILES/
 adcdir = $(lib)ADC/
 gpsdir = $(lib)GPS/
 rtcdir = $(lib)RTC/
 gpiodir = $(lib)GPIO/
 socketdir = $(lib)SOCKET/
+
+testsDir = $(tests)
+
 MAIN = sensor.c
+
 OBJECTS = $(adcdir)adc.o $(gpsdir)gps.o $(rtcdir)rtc.o $(gpiodir)gpio.o $(sacdir)sacsubc.o $(socketdir)socketlib.o
 
-main : $(OBJECTS)
+sensor : $(OBJECTS)
 	gcc $(MAIN) -o sensor $(OBJECTS) -lrt -l json
+	gcc tests/testGps.c -o tests/testGps $(OBJECTS) -lrt -l json
 
 $(sacdir)sacsubc.o : $(sacdir)sacsubc.c $(sacdir)
 	gcc -o $(sacdir)sacsubc.o -c $(sacdir)sacsubc.c
@@ -31,6 +38,6 @@ $(socketdir)socketlib.o : $(socketdir)socketlib.c $(socketdir)
 
 .PHONY : clean
 clean :
-	-rm main $(OBJECTS)
+	-rm sensor $(OBJECTS)
 
 

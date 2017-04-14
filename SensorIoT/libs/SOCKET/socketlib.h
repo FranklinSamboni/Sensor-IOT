@@ -4,7 +4,7 @@
 	#include <netinet/in.h>
 
 	#define SERVER_IP "127.0.0.1"
-	#define SOCKET_PORT 4000
+	#define SOCKET_PORT 4001
 	//#define SOCKET_PORT 46500
 
 	typedef struct socketStr socketStr;

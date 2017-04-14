@@ -56,8 +56,8 @@ int readUART(char * buf){
 	resultado = read(gps.file,buf,255);
 	if(resultado < 0){
 		char msg[] = "Error leyendo el UART.";
-		errorGps(msg);
-		perror(gps.device);
+		//errorGps(msg);
+		//perror(gps.device);
 		return -1;
 	}
 	buf[resultado] = 0;
