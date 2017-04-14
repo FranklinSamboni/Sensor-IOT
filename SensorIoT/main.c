@@ -846,13 +846,14 @@ void createDirRtc(char *dir, char *axis,char * date, char *time, int isGPS){
 	}
 
 	if(dir[0] == 0){
-		sprintf(dir,"%s/%s/%s%s_%c%c0000.sac",SAMPLES_DIR_R,date,axis,date,time[0],time[1]);
+		sprintf(dir,"%s/%s/%s_%c%c_%s.sac",SAMPLES_DIR_R,date,date,time[0],time[1],axis);
 		initDataofSamples(date,time,isGPS);
 		createFile(dir);
 
 	}
 	else if (time[2]=='0' && time[3]=='0' && time[4]=='0' && time[5]=='0'){ //Nueva Hora
-		sprintf(dir,"%s/%s/%s%s_%c%c%c%c%c%c.sac",SAMPLES_DIR_R,date,axis,date,time[0],time[1],time[2],time[3],time[4],time[5]);
+		sprintf(dir,"%s/%s/%s_%c%c_%s.sac",SAMPLES_DIR_R,date,date,time[0],time[1],axis);
+		//sprintf(dir,"%s/%s/%s%s_%c%c%c%c%c%c.sac",SAMPLES_DIR_R,date,axis,date,time[0],time[1],time[2],time[3],time[4],time[5]);
 		initDataofSamples(date,time,isGPS);
 		createFile(dir);
 
