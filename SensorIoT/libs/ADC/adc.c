@@ -91,6 +91,30 @@ int closeSPI(){
 	return ret;
 }
 
+void settingTestADC(){
+
+	writeRegister(POWER, 0x01); // clear bit reset to detect new reset
+	usleep(10);
+
+	writeRegister(MODE0, 0x40); // enable pulse conversion mode
+	usleep(10);
+
+	writeRegister(MODE1, 0x80); // Select sinc 0 for digital filter
+	usleep(10);
+
+	//writeRegister(MODE2, 0x08); // PGA disabled y 400 SPS
+	//writeRegister(MODE2, 0x88);
+	writeRegister(MODE2, 0x84); // 20 sps
+	usleep(10);
+
+	writeRegister(INPMUX, 0x01); // Select AIN0 como AINP Y AIN1 COMO AINN
+	usleep(10);
+
+	writeRegister(REFMUX, 0X24); // Seleccionar voltaje de alimentacion VSUPPY como voltaje de referencia
+	usleep(10);
+
+}
+
 void settingADC(){
 
 	writeRegister(POWER, 0x01); // clear bit reset to detect new reset
@@ -291,6 +315,7 @@ int readData(char * recvBuffer){
 }
 
 int readAINx(char * recvBuffer){
+	Start_LOW();
 	Start_HIGH();
 	//usleep(1);
 	Start_LOW();
@@ -326,10 +351,9 @@ int readAIN6_7(char * recvBuffer){
 	return readAINx(recvBuffer);
 }
 
-double getVoltage(char *ADC_data){
+double getVoltage(char *ADC_data, double VREF){
 	unsigned long adc_count = 0;
 	double resolution = 0;
-	double VREF = 3.4; // Cambiar cuando se cambie la referecia externa.
 	double Vol_V = 0;
 	double Vol_mV = 0;
 
@@ -338,6 +362,7 @@ double getVoltage(char *ADC_data){
 
 	Vol_V = resolution * (double) adc_count;
 	Vol_mV = Vol_V * 1000;
+
 
 	//printf("\nadc_count es: %lu\n", adc_count);
 	//printf("RESOLUTION es: %lu\n", resolution);

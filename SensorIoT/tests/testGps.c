@@ -28,11 +28,12 @@
  * {
  * 		"status": ERROR,
  * 		"componente": "CHECK_READ_GPS",
- * 		"msg" : "Cargando..."
+ * 		"msg" : "Cargando...",
+ * 		"last" : "BOOLEAN"
  * }
  *
  */
-void sendMsg(int status, char *component, char * msg);
+void sendMsg(int status, char *component, char * msg, int last);
 void checkReadGPS();
 void checkingPPS();
 
@@ -73,17 +74,19 @@ int main(int argc, char *argv[]){
 	return 0;
 }
 
-void sendMsg(int status, char *component, char * msg){
+void sendMsg(int status, char *component, char * msg, int last){
 
 	json_object *jobj = json_object_new_object();
 
 	json_object *jstatus = json_object_new_int(status);
 	json_object *jcomponent = json_object_new_string(component);
 	json_object *jmsg = json_object_new_string(msg);
+	json_object *jlast = json_object_new_boolean(last);
 
 	json_object_object_add(jobj,"status", jstatus);
 	json_object_object_add(jobj,"component", jcomponent);
 	json_object_object_add(jobj,"msg", jmsg);
+	json_object_object_add(jobj,"last", jlast);
 
 	//printf(json_object_to_json_string(jobj));
 	writeSOCKET(json_object_to_json_string(jobj));
@@ -98,7 +101,7 @@ void checkReadGPS(){
 
 	//TASA DE BAUDIOS 3 DE = B115200
 	if(openUART(3,DEVICE_UART)< 0){
-		sendMsg(ERROR,CHECK_READ_GPS,"Error intentado abrir el dispositivo UART.");
+		sendMsg(ERROR,CHECK_READ_GPS,"Error intentado abrir el dispositivo UART.",1);
 		exit(0);
 	}
 
@@ -106,7 +109,7 @@ void checkReadGPS(){
 	configureNMEA_Messages(1,0,0,0,1,0,0);
 	sleep(1); // waiting for GPS
 
-	sendMsg(LOADING,CHECK_READ_GPS,MSG_READ_GPS);
+	sendMsg(LOADING,CHECK_READ_GPS,MSG_READ_GPS,0);
 	sleep(1);
 
 	time_t inicio, fin;
@@ -127,8 +130,17 @@ void checkReadGPS(){
 				if(count < 5){
 					inicio = time(NULL);
 					//printBuffer(res,buf);
+					buf[res] = 0;
+					buf[res-1] = 0;
+					buf[res-2] = 0;
 
-					sendMsg(SUCCESS,CHECK_READ_GPS,buf);
+					if(count == 4){
+						sendMsg(SUCCESS,CHECK_READ_GPS,buf,1);
+					}
+					else{
+						sendMsg(SUCCESS,CHECK_READ_GPS,buf,0);
+					}
+
 
 					//printf("count es: %d\n", count);
 					count++;
@@ -146,7 +158,7 @@ void checkReadGPS(){
 			if( diff2 > 20.0){
 				if( diff2 > diff){
 
-					sendMsg(ERROR,CHECK_READ_GPS,MSG_CHECK_COMPONENT);
+					sendMsg(ERROR,CHECK_READ_GPS,MSG_CHECK_COMPONENT,1);
 					break;
 				}
 				diff = difftime(fin,inicio);
@@ -162,7 +174,7 @@ void checkingPPS(){
 	initGPIO(26, &gpio26_PPS);
 	setDirection(INPUT, &gpio26_PPS);
 
-	sendMsg(LOADING,CHECK_PPS,MSG_PPS);
+	sendMsg(LOADING,CHECK_PPS,MSG_PPS,0);
 
 	time_t inicio, fin;
 	int diff = 0;
@@ -177,7 +189,7 @@ void checkingPPS(){
 			inicio = time(NULL);
 			if(cont == 5){
 
-				sendMsg(SUCCESS,CHECK_PPS,"El funcionamiento de PPS es correcto");
+				sendMsg(SUCCESS,CHECK_PPS,"El funcionamiento de PPS es correcto",1);
 				break;
 			}
 			cont++;
@@ -186,7 +198,7 @@ void checkingPPS(){
 			if(difftime(fin,inicio) > 20.0){
 				if(difftime(fin,inicio) > diff){
 
-					sendMsg(ERROR,CHECK_PPS,"Verifica el pin de PPS.");
+					sendMsg(ERROR,CHECK_PPS,"Verifica el pin de PPS.",1);
 					break;
 				}
 				diff = difftime(fin,inicio);

@@ -23,6 +23,10 @@
 	#define AIN2 "AIN2"
 	#define AIN4 "AIN4"
 	#define AIN6 "AIN6"
+	#define INTERNAL_VREF 2.5
+	#define VSUPPLY_VREF 5.0
+	#define EXTERNAL1_VREF 3.4
+	#define EXTERNAL2_VREF 1.8
 
 	#define GPIO_RESET 9
 	#define GPIO_DRDY 10
@@ -86,6 +90,7 @@
 	int openSPI(char * SPIDevice);
 	int closeSPI();
 
+	void settingTestADC();
     void settingADC();
     void settingPins();
     void resetADC();
@@ -107,7 +112,7 @@
     int readAIN4_5(char * recvBuffer);
     int readAIN6_7(char * recvBuffer);
 
-    double getVoltage(char *ADC_data);
+    double getVoltage(char *ADC_data, double VREF);
 
     void Start_HIGH();
     void Start_LOW();

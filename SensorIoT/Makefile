@@ -1,5 +1,4 @@
 lib = libs/
-testsDir = tests/
 
 sacdir = $(lib)SAC_FILES/
 adcdir = $(lib)ADC/
@@ -8,15 +7,17 @@ rtcdir = $(lib)RTC/
 gpiodir = $(lib)GPIO/
 socketdir = $(lib)SOCKET/
 
-testsDir = $(tests)
 
 MAIN = sensor.c
 
 OBJECTS = $(adcdir)adc.o $(gpsdir)gps.o $(rtcdir)rtc.o $(gpiodir)gpio.o $(sacdir)sacsubc.o $(socketdir)socketlib.o
 
 sensor : $(OBJECTS)
-	gcc $(MAIN) -o sensor $(OBJECTS) -lrt -l json
 	gcc tests/testGps.c -o tests/testGps $(OBJECTS) -lrt -l json
+	gcc tests/testAdc.c -o tests/testAdc $(OBJECTS) -lrt -l json
+	gcc tests/testRtc.c -o tests/testRtc $(OBJECTS) -lrt -l json
+	gcc $(MAIN) -o sensor $(OBJECTS) -lrt -l json
+
 
 $(sacdir)sacsubc.o : $(sacdir)sacsubc.c $(sacdir)
 	gcc -o $(sacdir)sacsubc.o -c $(sacdir)sacsubc.c
