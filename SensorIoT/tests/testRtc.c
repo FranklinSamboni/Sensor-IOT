@@ -129,7 +129,7 @@ void checkReadRTC(){
 				getTimeRtc(timeBuf,buf);
 				getDateRtc(dateBuf,buf);
 
-				sprintf(msg,"%c%c/%c%c/%c%c %c%c:%c%c:%c%c",dateBuf[4],dateBuf[5],dateBuf[2],dateBuf[3],dateBuf[0],dateBuf[1], timeBuf[0],timeBuf[1],timeBuf[2],timeBuf[3],timeBuf[4],timeBuf[5]);
+				sprintf(msg,"UTC %c%c/%c%c/%c%c %c%c:%c%c:%c%c",dateBuf[4],dateBuf[5],dateBuf[2],dateBuf[3],dateBuf[0],dateBuf[1], timeBuf[0],timeBuf[1],timeBuf[2],timeBuf[3],timeBuf[4],timeBuf[5]);
 				printf("%s\n");
 				if(count == 4){
 					sendMsg(SUCCESS,CHECK_READ_RTC,msg,1);
@@ -139,7 +139,6 @@ void checkReadRTC(){
 				}
 				//printf("count es: %d\n", count);
 				count++;
-				sleep(1);
 			}
 			else{
 				//printf("countssss es: %d\n", count);
