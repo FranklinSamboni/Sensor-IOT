@@ -60,7 +60,9 @@ int readUART(char * buf){
 		//perror(gps.device);
 		return -1;
 	}
+	printf("%s--\n", buf);
 	buf[resultado] = 0;
+	printf("%s--\n", buf);
 	return resultado;
 }
 
@@ -101,7 +103,7 @@ char checkSum(int pl, char * payload){
 		cs = cs ^ payload[n];
 		n = n + 1;
 	}
-	printf("CS es : !%hhX!\n", cs);
+	//printf("CS es : !%hhX!\n", cs);
 	// malloc(255);
 	return cs;
 }
@@ -125,14 +127,14 @@ int setFactoryDefaults(){
 	buffer[7] = 0x0D;
 	buffer[8] = 0x0A;
 
-	printf("Escribiendo (GPS): !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8]);
+	//printf("Escribiendo (GPS): !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8]);
 
 	res = writeUART(buffer);
 	return res;
 }
 
 int configureSerialPort(int bauds){
-	printf("Inicio Cambio: %d\n", bauds);
+	//printf("Inicio Cambio: %d\n", bauds);
 	char options[4] = {0x00,0x01,0x03,0x05};
 	char payload[4] = {0};
 	char buffer[11] = {0};
@@ -163,19 +165,19 @@ int configureSerialPort(int bauds){
     buffer[9] = 0x0D;
     buffer[10] = 0x0A;
 
-	printf("Escribiendo (GPS): !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8],buffer[9],buffer[10]);
+	//printf("Escribiendo (GPS): !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8],buffer[9],buffer[10]);
 
 	// Escribe por el UART antes de modificar la tasa de baudios de la Beagle.
 	res = writeUART(buffer);
-	printf("WRITE");
+	//printf("WRITE");
 	if(res == 1){ // verificar la escritura, cierre, y abertura de dispositivo.
 		char device[24] = {0};
 		strcpy(device,gps.device);
 		res =  closeUART();
-		printf("CLOSE");
+		//printf("CLOSE");
 		if(res == 1){
 			res = openUART(bauds, device);
-			printf("OPEN");
+			//printf("OPEN");
 			return res;
 		}
 	}
@@ -206,7 +208,7 @@ int configureMessageType(int type)
 	buffer[6] = checkSum(2,payload); // CS -> CheckSum
 	buffer[7] = 0x0D;
 	buffer[8] = 0x0A;
-	printf("Escribiendo (GPS): !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8]);
+	//printf("Escribiendo (GPS): !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8]);
 	res = writeUART(buffer);
 	return res;
 }
@@ -261,8 +263,8 @@ int configureNMEA_Messages(int GGA, int GSA, int GSV, int GLL, int RMC, int VTG,
 		buffer[14] = 0x0D;
 		buffer[15] = 0x0A;
 
-		printf("Escribiendo (GPS): !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8]);
-		printf("!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[9],buffer[10],buffer[11],buffer[12],buffer[13],buffer[14],buffer[15]);
+		//printf("Escribiendo (GPS): !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7],buffer[8]);
+		//printf("!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n",buffer[9],buffer[10],buffer[11],buffer[12],buffer[13],buffer[14],buffer[15]);
 		res = writeUART(buffer);
 		return res;
 	}
@@ -311,7 +313,7 @@ void saveDataGps(char * buffer, char * dir){
 		//FILE * ubicacion = fopen ("ubicacion.txt", "w+");
 		//FILE * ubicacion = fopen ("muestras/pruebas/datos.txt", "w");
 		FILE * ubicacion = fopen (dir, "r+");
-		printf("GPS Archivo -> date: %s | time: %s | lat: %s | lng: %s | alt: %s\n",data.date,data.time,data.lat,data.lng,data.alt);
+		//printf("GPS Archivo -> date: %s | time: %s | lat: %s | lng: %s | alt: %s\n",data.date,data.time,data.lat,data.lng,data.alt);
 		fprintf(ubicacion,"date: %s | time: %s | lat: %s | lng: %s | alt: %s\n",data.date,data.time,data.lat,data.lng,data.alt);
 		fclose(ubicacion);
 	}
@@ -390,6 +392,7 @@ int getTimeGps(char * buffer, char * RMC_NEMEA){
 		i++;
 	}
 	buffer[i] = 0;
+	//printf("time %s\n", buffer);
 	return i; // # bytes
 
 }
@@ -403,6 +406,7 @@ int getDateGps(char * buffer, char * RMC_NEMEA){
 		i++;
 	}
 	buffer[i] = 0;
+	//printf("date %s\n", buffer);
 	return i; // # bytes
 
 }

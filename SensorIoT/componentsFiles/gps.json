@@ -1,1 +1,1 @@
-{ "status": "Correcto", "descript": "Venus GPS logger", "baudRate": "115200", "msjNMEA": "GGA - RMC", "error": "" }
+{ "status": "Correcto", "descript": "Venus GPS logger", "error": "", "baudRate": "115200", "msjNMEA": "GGA - RMC" }

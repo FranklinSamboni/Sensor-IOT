@@ -137,6 +137,7 @@ void settingADC(){
 	writeRegister(REFMUX, 0X09); // Select AIN0 como REFP y AIN1 como REFN
 	usleep(10);
 
+	/*
 	char recvBuf[2] = {0x00,};
 
 	if(readRegister(recvBuf , POWER) > 1){
@@ -167,7 +168,7 @@ void settingADC(){
 	if(readRegister(recvBuf , REFMUX) > 1){
 		printf("valor leido REFMUX : %.2X \n",recvBuf[0]);
 		usleep(10);
-	}
+	}*/
 
 
 }

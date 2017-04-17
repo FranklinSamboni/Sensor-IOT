@@ -15,7 +15,8 @@
 #define LOADING  1
 #define SUCCESS  2
 
-#define CHECK_ADC  "ADC"
+#define TYPE  "TEST"
+#define CHECK_ADC  "TEST_ADC"
 
 #define MSG_CHECK "Verificando funcionamiento del ADC"
 #define MSG_ERROR_OPEN_SPI "No se ha podido abrir el dispositivo SPI."
@@ -54,11 +55,13 @@ void sendMsg(int status, char *component, char * msg, int last){
 	json_object *jobj = json_object_new_object();
 
 	json_object *jstatus = json_object_new_int(status);
+	json_object *jtype = json_object_new_string(TYPE);
 	json_object *jcomponent = json_object_new_string(component);
 	json_object *jmsg = json_object_new_string(msg);
 	json_object *jlast = json_object_new_boolean(last);
 
 	json_object_object_add(jobj,"status", jstatus);
+	json_object_object_add(jobj,"type", jtype);
 	json_object_object_add(jobj,"component", jcomponent);
 	json_object_object_add(jobj,"msg", jmsg);
 	json_object_object_add(jobj,"last", jlast);

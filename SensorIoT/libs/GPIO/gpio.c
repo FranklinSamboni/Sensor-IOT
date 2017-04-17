@@ -16,8 +16,8 @@ void initGPIO(int number, gpioParams* params){
 	strcat(params->path,params->name);
 	strcat(params->path,"/"); *///modificar
 
-	printf("%s\n",params->path);
-	printf("%s\n",GPIO_PATH);
+	//printf("%s\n",params->path);
+	//printf("%s\n",GPIO_PATH);
 	exportGPIO(params);
 	usleep(250000); // esperando a que el sistema configure el GPIO
 
@@ -30,7 +30,7 @@ int exportGPIO(gpioParams* params){
 		return -1;
 	}
 
-	printf("Exportando..\n");
+	//printf("Exportando..\n");
 	int res = writeGPIOInt(GPIO_PATH, "export", params->number);
 	return res;
 }
@@ -42,7 +42,7 @@ int unexportGPIO(gpioParams* params){
 		return -1;
 	}
 
-	printf("Deshabilitando..\n");
+	//printf("Deshabilitando..\n");
 	int res = writeGPIOInt(GPIO_PATH, "unexport", params->number);
 	eraseParams(params);
 	return res;

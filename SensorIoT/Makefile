@@ -6,11 +6,11 @@ gpsdir = $(lib)GPS/
 rtcdir = $(lib)RTC/
 gpiodir = $(lib)GPIO/
 socketdir = $(lib)SOCKET/
-
+jsonfilesdir = $(lib)JSON_FILES/
 
 MAIN = sensor.c
 
-OBJECTS = $(adcdir)adc.o $(gpsdir)gps.o $(rtcdir)rtc.o $(gpiodir)gpio.o $(sacdir)sacsubc.o $(socketdir)socketlib.o
+OBJECTS = $(jsonfilesdir)filesJ.o $(adcdir)adc.o $(gpsdir)gps.o $(rtcdir)rtc.o $(gpiodir)gpio.o $(sacdir)sacsubc.o  $(socketdir)socketlib.o
 
 sensor : $(OBJECTS)
 	gcc tests/testGps.c -o tests/testGps $(OBJECTS) -lrt -l json
@@ -18,6 +18,8 @@ sensor : $(OBJECTS)
 	gcc tests/testRtc.c -o tests/testRtc $(OBJECTS) -lrt -l json
 	gcc $(MAIN) -o sensor $(OBJECTS) -lrt -l json
 
+$(jsonfilesdir)filesJ.o : $(jsonfilesdir)filesJ.c $(jsonfilesdir)
+	gcc -o $(jsonfilesdir)filesJ.o -lrt -l json -c $(jsonfilesdir)filesJ.c 
 
 $(sacdir)sacsubc.o : $(sacdir)sacsubc.c $(sacdir)
 	gcc -o $(sacdir)sacsubc.o -c $(sacdir)sacsubc.c

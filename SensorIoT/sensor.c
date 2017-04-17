@@ -13,6 +13,7 @@
 #include "libs/GPIO/gpio.h"
 #include "libs/SOCKET/socketlib.h"
 #include "libs/SAC_FILES/sacsubc.h"
+#include "libs/JSON_FILES/filesJ.h"
 /*
  * Directions INPUT, OUTPUT
  * Values LOW, HIGH
@@ -24,8 +25,27 @@
  * Usar 0x?8 en el registro MODE2 del adc para conseguir valores de 80 muestras por segundo.
  */
 
-#define CORRECT_STATUS_COMPONENT  "Correcto"
-#define ERROR_STATUS_COMPONENT  "Error"
+#define TYPE "MAIN"
+
+/*Tipo de processos*/
+#define ALERTS_ERROR "ALERTS_ERROR"
+#define PUT_LOCATION "PUT_LOCATION_GPS"
+#define PUT_RTC_DATE "PUT_RTC_DATEHOUR"
+#define PUT_SPS "PUT_SPS"
+#define ALERTS "ALERTS_ERROR"
+#define REAL_TIME "REAL_TIME"
+
+/*Tipo de componentes*/
+#define GPS "GPS"
+#define PPS "PPS"
+#define RTC "RTC"
+#define SYNC "SYNC"
+#define ADC "ADC"
+#define ACC "ACC"
+#define BAT "BAT"
+#define WIFI "WIFI"
+
+/*-----*/
 
 #define SAMPLES_DIR_R "muestras"
 #define BILLION 1000000000L
@@ -56,8 +76,6 @@ depValues strDepValues;
 gpioParams gpio68_SYNC; // para RTC
 gpioParams gpio26_PPS; // para GPS
 
-void signal_handler(int sig);
-
 /*
  *  Obtiene y envia la información inicial del GPS:
  *  - Latitud
@@ -77,10 +95,11 @@ void checkingPPS();
  * Activa la alarma cada segundo del RTC (Señal SYNC).
  * Sincroniza RTC y GPS.
  * */
-void settingRtC();
-void componentsFile();
-int getStatus(json_object * jobj);
+
+void sincronizarRtc();
+void checkingSYNC();
 void readAndSaveData();
+void sendMsg(char * process, char *component, char * msg, int last);
 void readWithRTC();
 int readAnalogInputsAndSaveData(char * date, char * time, int isGPS);
 void createDirRtc(char *dir, char *axis,char * date, char *time, int isGPS);
@@ -91,16 +110,7 @@ void subMuestreo_xxx(float *currentData, float *newData, int factor);
 void readDataPrueba(float * dataX, float * dataY, float * dataZ);
 void read_prueba_solo_pps();
 
-int main(){
-
-	//signal(SIGINT, signal_handler);
-
-	int gps = 0, bits;
-	int rtc = 0;
-	char bufSock[255] = {0};
-	char buf[255] = {0};
-	char bufRtc[255] = {0};
-	char time[255] = {0};
+int main(int argc, char *argv[]){
 
 	initGPIO(68, &gpio68_SYNC);
 	setDirection(INPUT, &gpio68_SYNC);
@@ -108,11 +118,9 @@ int main(){
 	initGPIO(26, &gpio26_PPS);
 	setDirection(INPUT, &gpio26_PPS);
 
-	// Conectando al servidor
-	printf("abriendosocket\n");
-	if(openSOCKET(SERVER_IP,SOCKET_PORT)< 0){
+	/*if(openSOCKET(SERVER_IP,SOCKET_PORT)< 0){
 		exit(0);
-	}
+	}*/
 
 	//TASA DE BAUDIOS 3 DE = B115200
 	if(openUART(3,DEVICE_UART)< 0){
@@ -123,140 +131,57 @@ int main(){
 		exit(0);
 	}
 
-	if (openSPI(DECIVE_SPI) < 0){
+	/*if (openSPI(DECIVE_SPI) < 0){
 		exit(0);
-	}
+	}*/
 
-	settingPins(); // configurar pines de control del ADC
-	settingADC();
-	//componentsFile();
+	//settingPins(); // Configurar pines de control del ADC
+	//settingADC();
 
-	//setFactoryDefaults();
+	/*printf("se llamo a loadingGpsData\n");
 	loadingGpsData();
-	checkingPPS();
-	settingRtC();
+	printf("se llamo a checkingPPS\n");
+	checkingPPS();*/
+	printf("se llamo a settingRtC\n");
+	sincronizarRtc();
+	checkingSYNC();
 
-	writeSOCKET("Estado: Ready.\n");
-
-	int fsc = 0;
+	/*
 	while(1){
- 		/*printf ("Antes\n");
-		fsc = readSOCKET(bufSock);
-		printf ("Despues\n");
-		if(fsc != -1 ){
-			printf ("JSON string: %s.\n", bufSock);
-			json_object * jobj = json_tokener_parse(bufSock);
-			printf ("Status: %d.\n", getStatus(jobj));*/
-			readAndSaveData();
-			//read_prueba_solo_pps();
-		/*}else{
-			printf ("Error socket.\n");
-		}
-		printf ("Final\n");*/
 
-	}
+		readAndSaveData();
+	}*/
 
 	destroyGPIO(&gpio68_SYNC);
 	destroyGPIO(&gpio26_PPS);
 	desactiveAlarmRtc();
 	closeUART();
 	closeI2C();
-	closeSOCKET();
-	closeSPI();
+	//closeSOCKET();
+	//closeSPI();
 
 	return 0;
 }
 
-void signal_handler(int sig){
-	printf( "Ctrl-C pressed, cleaning up and exiting..\n" );
-	destroyGPIO(&gpio68_SYNC);
-	destroyGPIO(&gpio26_PPS);
-	desactiveAlarmRtc();
-	closeUART();
-	closeI2C();
-	closeSOCKET();
-}
+void sendMsg(char * process, char *component, char * msg, int last){
 
-void componentsFile(){
+	json_object *jobj = json_object_new_object();
 
-	//////////////////// ---- Accelerometer ---- ////////////////////////
+	json_object *jtype = json_object_new_string(TYPE);
+	json_object *jprocess = json_object_new_string(process);
+	json_object *jcomponent = json_object_new_string(component);
+	json_object *jmsg = json_object_new_string(msg);
+	json_object *jlast = json_object_new_boolean(last);
 
-	json_object * jobjAccelerometerData = json_object_new_object();
+	json_object_object_add(jobj,"type", jtype);
+	json_object_object_add(jobj,"process", jprocess);
+	json_object_object_add(jobj,"component", jcomponent);
+	json_object_object_add(jobj,"msg", jmsg);
+	json_object_object_add(jobj,"last", jlast);
 
-	json_object *status = json_object_new_string(CORRECT_STATUS_COMPONENT);
-	json_object *descriptAccelerometer = json_object_new_string("adxl335");
-	json_object *error = json_object_new_string("");
+	writeSOCKET(json_object_to_json_string(jobj));
+	sleep(1);
 
-	json_object_object_add(jobjAccelerometerData,"status", status);
-	json_object_object_add(jobjAccelerometerData,"descript", descriptAccelerometer);
-	json_object_object_add(jobjAccelerometerData,"error", error);
-
-	printf(json_object_to_json_string(jobjAccelerometerData));
-
-	FILE * accelerometerData = fopen ("connection/componentsFiles/accelerometer.json", "w");
-	fprintf(accelerometerData,"%s",json_object_to_json_string(jobjAccelerometerData));
-	fclose(accelerometerData);
-
-	//////////////////// ---- Adc ---- ////////////////////////
-
-	char sps[10] = {0};
-	sprintf(sps,"%d",SPS);
-
-	json_object * jobjAdcData = json_object_new_object();
-
-	//json_object *status = json_object_new_string(CORRECT_STATUS_COMPONENT);
-	json_object *descriptAdc = json_object_new_string("ads126x de 32 bits");
-	json_object *samples = json_object_new_string(sps);
-	//json_object *error = json_object_new_string("");
-
-	json_object_object_add(jobjAdcData,"status", status);
-	json_object_object_add(jobjAdcData,"descript", descriptAdc);
-	json_object_object_add(jobjAdcData,"samples", samples);
-	json_object_object_add(jobjAdcData,"error", error);
-
-	printf(json_object_to_json_string(jobjAdcData));
-
-	FILE * adcData = fopen ("connection/componentsFiles/adc.json", "w");
-	fprintf(adcData,"%s",json_object_to_json_string(jobjAdcData));
-	fclose(adcData);
-
-	//////////////////// ---- Cpu ---- ///////////////////////
-
-	json_object * jobjCpuData = json_object_new_object();
-
-	//json_object *status = json_object_new_string(CORRECT_STATUS_COMPONENT);
-	json_object *descriptCpu = json_object_new_string("ARM Cortex-A8 – 1GHz");
-	//json_object *error = json_object_new_string("");
-
-	json_object_object_add(jobjCpuData,"status", status);
-	json_object_object_add(jobjCpuData,"descript", descriptCpu);
-	json_object_object_add(jobjCpuData,"error", error);
-
-	printf(json_object_to_json_string(jobjCpuData));
-
-	FILE * cpuData = fopen ("connection/componentsFiles/cpu.json", "w");
-	fprintf(cpuData,"%s",json_object_to_json_string(jobjCpuData));
-	fclose(cpuData);
-
-	//////////////////// ---- Battery ---- ///////////////////////
-
-	json_object * jobjBatteryData = json_object_new_object();
-
-	//json_object *status = json_object_new_string(CORRECT_STATUS_COMPONENT);
-	json_object *descriptBattery = json_object_new_string("Bateria");
-	json_object *charge = json_object_new_string("50.00");
-	//json_object *error = json_object_new_string("");
-
-	json_object_object_add(jobjBatteryData,"status", status);
-	json_object_object_add(jobjBatteryData,"descript", descriptBattery);
-	json_object_object_add(jobjBatteryData,"charge", charge);
-	json_object_object_add(jobjBatteryData,"error", error);
-
-	printf(json_object_to_json_string(jobjBatteryData));
-
-	FILE * batteryData = fopen ("connection/componentsFiles/battery.json", "w");
-	fprintf(batteryData,"%s",json_object_to_json_string(jobjBatteryData));
-	fclose(batteryData);
 }
 
 void loadingGpsData(){
@@ -265,30 +190,18 @@ void loadingGpsData(){
 	char buf[255] = {0};
 	char lat[24] = {0}, lng[24] = {0}, alt[24] = {0};
 	char dateGps[24] = {0}, timeGps[24] = {0};
+	char msg[255] = {0};
 
-	json_object * jobjLocation = json_object_new_object();
-	json_object * jobjGpsData = json_object_new_object();
-	//configureSerialPort(3); // Configurar tasa de baudios GPS a 115200
-	sleep(1); // waiting for GPS
+	/*configureSerialPort(3); Configurar tasa de baudios GPS a 115200
+	sleep(1);  waiting for GPS*/
+
 	//configureNMEA_Messages(int GGA, int GSA, int GSV, int GLL, int RMC, int VTG, int ZDA)
 	configureNMEA_Messages(1,0,0,0,1,0,0);
 	sleep(1); // waiting for GPS
 
-	json_object * jstatus = json_object_new_object();
-	json_object *js = json_object_new_int(1);
-	json_object *jmsg = json_object_new_string("Cargando datos del GPS.");
-
-	json_object_object_add(jstatus,"status", js);
-	json_object_object_add(jstatus,"msg", jmsg);
-
-	printf(json_object_to_json_string(jstatus));
-	//writeSOCKET(json_object_to_json_string(jstatus));
-	sleep(1);
-
 	time_t inicio, fin;
 	int diff = 0;
 	inicio = time(NULL);
-
 
 	while(1){
 		res = readUART(buf);
@@ -308,61 +221,23 @@ void loadingGpsData(){
 				getTimeGps(timeGps,buf);
 				if(flag == 1){
 
-					js = json_object_new_int(2);
-					json_object *jlat = json_object_new_string(lat);
-					json_object *jlng = json_object_new_string(lng);
-					json_object *jalt = json_object_new_string(alt);
-					json_object *jdate = json_object_new_string(dateGps);
-					json_object *jtime = json_object_new_string(timeGps);
+					gpsJson(CORRECT_STATUS_COMPONENT,"Venus GPS logger","115200","GGA - RMC","");
+					locationJson(lat, lng,alt);
 
-					json_object_object_add(jobjLocation,"status", js);
-					json_object_object_add(jobjLocation,"lat", jlat);
-					json_object_object_add(jobjLocation,"lng", jlng);
-					json_object_object_add(jobjLocation,"alt", jalt);
-					json_object_object_add(jobjLocation,"date", jdate);
-					json_object_object_add(jobjLocation,"time", jtime);
-
-					printf(json_object_to_json_string(jobjLocation));
-
-
-					json_object *statusGps = json_object_new_string(CORRECT_STATUS_COMPONENT);
-					json_object *descriptGps = json_object_new_string("Venus GPS logger");
-					json_object *baudRate = json_object_new_string("115200");
-					json_object *msjNMEA = json_object_new_string("GGA - RMC");
-					json_object *error = json_object_new_string("");
-
-					json_object_object_add(jobjGpsData,"status", statusGps);
-					json_object_object_add(jobjGpsData,"descript", descriptGps);
-					json_object_object_add(jobjGpsData,"baudRate", baudRate);
-					json_object_object_add(jobjGpsData,"msjNMEA", msjNMEA);
-					json_object_object_add(jobjGpsData,"error", error);
-
-					printf(json_object_to_json_string(jobjGpsData));
-					FILE * gpsData = fopen ("connection/componentsFiles/gps.json", "w");
-
-					fprintf(gpsData,"%s",json_object_to_json_string(jobjGpsData));
-					fclose(gpsData);
-
-					//writeSOCKET(json_object_to_json_string(jobj));
-					sleep(1);
+					sendMsg(PUT_LOCATION,GPS,"",1);
 					break;
 				}
-			}
-			else{
-				printf(json_object_to_json_string(jstatus));
-				//writeSOCKET(json_object_to_json_string(jstatus));
-				sleep(1);
 			}
 		}
 		else{
 			fin  = time(NULL);
-			if(difftime(fin,inicio) > 20.0){
+			if(difftime(fin,inicio) > 30.0){
 				if(difftime(fin,inicio) > diff){
 
-					js = json_object_new_int(-1);
-					jmsg = json_object_new_string("Revisa la conexión del GPS.");
-					printf(json_object_to_json_string(jstatus));
-					//writeSOCKET(json_object_to_json_string(jstatus));
+					sprintf(msg,"%s","Revisa la conexión del GPS, no se ha podido leer el dispositivo UART en mas 30 segundos de ejecución.");
+					gpsJson(ERROR_STATUS_COMPONENT,"Venus GPS logger","115200","GGA - RMC",msg);
+
+					sendMsg(ALERTS_ERROR,GPS,msg,1);
 					sleep(1);
 				}
 				diff = difftime(fin,inicio);
@@ -374,19 +249,8 @@ void loadingGpsData(){
 
 void checkingPPS(){
 
+	char msg[255] = {0};
 	int cont = 0;
-	json_object * jobj = json_object_new_object();
-
-	json_object * jstatus = json_object_new_object();
-	json_object *js = json_object_new_int(3);
-	json_object *jmsg = json_object_new_string("Verificando señal PPS.");
-
-	json_object_object_add(jstatus,"status", js);
-	json_object_object_add(jstatus,"msg", jmsg);
-
-	printf(json_object_to_json_string(jstatus));
-	//writeSOCKET(json_object_to_json_string(jstatus));
-
 	time_t inicio, fin;
 	int diff = 0;
 	inicio = time(NULL);
@@ -395,29 +259,17 @@ void checkingPPS(){
 		if(getValue(&gpio26_PPS) == HIGH){
 			inicio = time(NULL);
 			if(cont == 5){
-
-				json_object *jboolean = json_object_new_boolean(1);
-				js = json_object_new_int(4);
-
-				json_object_object_add(jobj,"status", js);
-				json_object_object_add(jobj,"pps", jboolean);
-
-				printf(json_object_to_json_string(jobj));
-				//writeSOCKET(json_object_to_json_string(jobj));
-
 				sleep(1);
-				// Salida del blucle
 				break;
 			}
 			cont++;
 		}else{
 			fin = time(NULL);
-			if(difftime(fin,inicio) > 20.0){
+			if(difftime(fin,inicio) > 30.0){
 				if(difftime(fin,inicio) > diff){
-					js = json_object_new_int(-1);
-					jmsg = json_object_new_string("Verifica la conexión de la señal PPS o espera una respuesta.");
-					printf(json_object_to_json_string(jstatus));
-					//writeSOCKET(json_object_to_json_string(jstatus));
+					sprintf(msg,"%s","Verifica la conexión de la señal PPS, no se ha podido capturar en mas 30 segundos de ejecución.");
+					sendMsg(ALERTS_ERROR,GPS,msg,1);
+					gpsJson(ERROR_STATUS_COMPONENT,"Venus GPS logger","115200","GGA - RMC",msg);
 				}
 				diff = difftime(fin,inicio);
 			}
@@ -426,26 +278,58 @@ void checkingPPS(){
 
 }
 
-void settingRtC(){
+void sincronizarRtc(){
+
+	int res = 0;
+	char buf[255] = {0};
+	char timeBuf[30] = {0}, dateBuf[30] = {0};
+
+	int count = 0;
+	int i = 0;
+	while(1){
+		if(getValue(&gpio26_PPS) == HIGH){
+			res = readUART(buf);
+			if(res != -1){
+				if(isRmcStatusOk(buf) == 1){
+
+
+					getTimeGps(timeBuf,buf); // configurando Hora
+					setTimeRtc(timeBuf); // Sincroniza RTC y GPS.
+
+					getDateGps(dateBuf,buf); // configurando fecha
+					setDateRtc(dateBuf);
+
+
+
+					while(i < 30){
+
+						timeBuf[i] = 0;
+						dateBuf[i] = 0;
+						i++;
+					}
+
+					if(count > 1){
+						break;
+					}
+
+					count++;
+				}
+			}
+
+
+		}
+	}
+}
+
+void checkingSYNC(){
 
 	int res = 0, sync = 0;
 	int cont = 0;
-	char buf[255] = {0};
+	char buf[255] = {0}, bufRtc[255] = {0};;
 	char timeBuf[24] = {0}, dateBuf[24] = {0};
+	char timeBufRtc[24] = {0}, dateBufRtc[24] = {0};
 	char fecha[50] = {0};
-
-	json_object * jobjTime = json_object_new_object();
-	json_object * jobjRtcData = json_object_new_object();
-
-	json_object * jstatus = json_object_new_object();
-	json_object *js = json_object_new_int(5);
-	json_object *jmsg = json_object_new_string("Activando señal SYNC y sincronizando RTC.");
-
-	json_object_object_add(jstatus,"status", js);
-	json_object_object_add(jstatus,"msg", jmsg);
-
-	printf(json_object_to_json_string(jstatus));
-	//writeSOCKET(json_object_to_json_string(jstatus));
+	char msg[255] = {0};
 
 	activeAlarmRtc();
 
@@ -453,21 +337,20 @@ void settingRtC(){
 	int diff = 0;
 	inicio = time(NULL);
 
-	while(1){
-		if(getValue(&gpio26_PPS) == HIGH){
-			res = readUART(buf);
-			if(res != -1){
-				if(isRmcStatusOk(buf) == 1){
-					getTimeGps(timeBuf,buf); // configurando Hora
-					setTimeRtc(timeBuf); // Sincroniza RTC y GPS.
+	res = readI2C(bufRtc);
+	if(res != -1){
+		printf("timeBuf es : %s\n", bufRtc);
 
-					getDateGps(dateBuf,buf); // configurando fecha
-					setDateRtc(dateBuf);
-					sync = 1;
-				}
-			}
-		}
-		else{
+		getTimeRtc(timeBufRtc,bufRtc);
+		getDateRtc(dateBufRtc,bufRtc);
+
+		sprintf(fecha,"%c%c/%c%c/%c%c %c%c:%c%c:%c%c",dateBufRtc[4],dateBufRtc[5],dateBufRtc[2],dateBufRtc[3],dateBufRtc[0],dateBufRtc[1], timeBufRtc[0],timeBufRtc[1],timeBufRtc[2],timeBufRtc[3],timeBufRtc[4],timeBufRtc[5]);
+		printf("fecha es : %s\n", fecha);
+
+	}
+
+	/*while(1){
+
 			if(getValue(&gpio68_SYNC) == LOW){
 				inicio = time(NULL);
 
@@ -476,45 +359,26 @@ void settingRtC(){
 
 				if(sync == 1 && cont > 4){
 
-					res = readI2C(buf);
+					res = readI2C(bufRtc);
 					if(res != -1){
+						printf("timeBuf es : %s\n", bufRtc);
 
-						getTimeRtc(timeBuf,buf);
-						getDateRtc(dateBuf,buf);
+						getTimeRtc(timeBufRtc,bufRtc);
+						getDateRtc(dateBufRtc,bufRtc);
 
-						js = json_object_new_int(6);
-						json_object *jboolean = json_object_new_boolean(1);
-						json_object *jtime = json_object_new_string(timeBuf);
-						json_object *jdate = json_object_new_string(dateBuf);
+						sprintf(fecha,"%c%c/%c%c/%c%c %c%c:%c%c:%c%c",dateBufRtc[4],dateBufRtc[5],dateBufRtc[2],dateBufRtc[3],dateBufRtc[0],dateBufRtc[1], timeBufRtc[0],timeBufRtc[1],timeBufRtc[2],timeBufRtc[3],timeBufRtc[4],timeBufRtc[5]);
+						printf("fecha es : %s\n", fecha);
 
-						json_object_object_add(jobjTime,"status", js);
-						json_object_object_add(jobjTime,"sync", jboolean);
-						json_object_object_add(jobjTime,"time", jtime);
-						json_object_object_add(jobjTime,"date", jdate);
 
-						printf(json_object_to_json_string(jobjTime));
-						//writeSOCKET(json_object_to_json_string(jobj));
-
-						sprintf(fecha,"%c%c/%c%c/%c%c %c%c:%c%c:%c%c",dateBuf[4],dateBuf[5],dateBuf[2],dateBuf[3],dateBuf[0],dateBuf[1], timeBuf[0],timeBuf[1],timeBuf[2],timeBuf[3],timeBuf[4],timeBuf[5]);
-
-						json_object *statusRtc = json_object_new_string(CORRECT_STATUS_COMPONENT);
-						json_object *descriptRtc = json_object_new_string("DS3231");
-						json_object *dateHour = json_object_new_string(fecha);
-						json_object *error = json_object_new_string("");
-
-						json_object_object_add(jobjRtcData,"status", statusRtc);
-						json_object_object_add(jobjRtcData,"descript", descriptRtc);
-						json_object_object_add(jobjRtcData,"dateHour", dateHour);
-						json_object_object_add(jobjRtcData,"error", error);
-
-						printf(json_object_to_json_string(jobjRtcData));
-						FILE * rtcData = fopen ("connection/componentsFiles/rtc.json", "w");
-
-						fprintf(rtcData,"%s",json_object_to_json_string(jobjRtcData));
-						fclose(rtcData);
-
+						rtcJson(CORRECT_STATUS_COMPONENT,"DS3231",fecha,"");
+						sendMsg(PUT_RTC_DATE,RTC,"",1);
 						sleep(1);
-						 //  Salida del bucle
+						break;
+					}
+					else{
+						sprintf(msg,"%s","No se ha podido leer el dispositivo I2C, revisa la conexión del RTC.");
+						rtcJson(ERROR_STATUS_COMPONENT,"DS3231","",msg);
+						sendMsg(ALERTS_ERROR,RTC,msg,1);
 						break;
 					}
 				}
@@ -524,112 +388,19 @@ void settingRtC(){
 				fin = time(NULL);
 				if(difftime(fin,inicio) > 20.0){
 					if(difftime(fin,inicio) > diff){
-						json_object *js = json_object_new_int(-1);
-						json_object *jmsg = json_object_new_string("Verifica la conexión de SQW (pin de SYNC) del RTC o espera una respuesta.");
-						printf(json_object_to_json_string(jstatus));
-						//writeSOCKET(json_object_to_json_string(jstatus));
+						sprintf(msg,"%s","Verifica la conexión de SQW (pin de SYNC) del RTC, su lectura ha demorado demasiado.");
+						rtcJson(ERROR_STATUS_COMPONENT,"DS3231","",msg);
+						sendMsg(ALERTS_ERROR,RTC,msg,1);
+
 					}
 					diff = difftime(fin,inicio);
 				}
 			}
 		}
-	}
+	}*/
 
 }
 
-int getStatus(json_object * jobj) {
-
-	enum json_type type;
-	int status = -1;
-	json_object_object_foreach(jobj, key, val) {
-		type = json_object_get_type(val);
-		switch (type) {
-		case json_type_int:
-			//printf("type: json_type_int, ");
-			//printf("value: %dn", json_object_get_int(val));
-			status = json_object_get_int(val);
-			break;
-		}
-	}
-	return status;
-}
-
-void read_prueba_solo_pps(){
-
-	float dataX[1000] = {0};
-	float dataY[1000] = {0};
-	float dataZ[1000] = {0};
-
-	int num_data = 0;
-	int reading_ADC = 0;
-
-	int iii = 0;
-	int gggg = 0;
-	while(1){
-
-		if(getValue(&gpio26_PPS) == HIGH){
-		//if(getValue(&gpio68_SYNC) == LOW){
-			gggg = gggg + 1;
-			printf("\nggggg es  %d \n", gggg);
-			printf("\n ----- Senial pps ------- \n");
-			//writeI2C(0x0F,0x88);
-			reading_ADC = 1;
-
-			/*iii = 0;
-			while(iii<num_data){
-				printf("Counter: %d | X: %lf | Y:%lf | Z: %lf\n",iii, dataX[iii],dataY[iii],dataZ[iii]);
-				iii = iii + 1;
-			}*/
-
-			printf("Numero de datos: %d.\n", num_data);
-
-			num_data = 0;
-
-			printf("Comenzo Lectura pruebas.\n");
-			readDataPrueba(&dataX[num_data],&dataY[num_data],&dataZ[num_data]);
-			printf("Counter: %d | X: %lf | Y:%lf | Z: %lf\n",num_data, dataX[num_data],dataY[num_data],dataZ[num_data]);
-			num_data = num_data + 1;
-
-		}
-		else{
-			//gggg = 0;
-			//printf("low\n");
-			if(reading_ADC == 1){
-				readDataPrueba(&dataX[num_data],&dataY[num_data],&dataZ[num_data]);
-				//printf("Counter: %d | X: %lf | Y:%lf | Z: %lf\n",num_data, dataX[num_data],dataY[num_data],dataZ[num_data]);
-				//printf("Counter: %d\n",num_data);
-				num_data = num_data + 1;
-			}
-		}
-	}
-
-}
-
-void readDataPrueba(float * dataX, float * dataY, float * dataZ){
-
-	char recvX[6] = {0x00,};
-	char recvY[6] = {0x00,};
-	char recvZ[6] = {0x00,};
-
-    float adc_countX = 0;
-    float adc_countY = 0;
-    float adc_countZ = 0;
-
-	readAIN2_3(recvX);
-	readAIN4_5(recvY);
-	readAIN6_7(recvZ);
-
-	adc_countX = (float) (((unsigned long)recvX[1]<<24)|((unsigned long)recvX[2]<<16)|(recvX[3]<<8)|recvX[4]);
-	adc_countY = (float) (((unsigned long)recvY[1]<<24)|((unsigned long)recvY[2]<<16)|(recvY[3]<<8)|recvY[4]);
-	adc_countZ = (float) (((unsigned long)recvZ[1]<<24)|((unsigned long)recvZ[2]<<16)|(recvZ[3]<<8)|recvZ[4]);
-
-	*dataX = adc_countX;
-	*dataY = adc_countY;
-	*dataZ = adc_countZ;
-
-}
-
-//////////////////////////////////////////////////// SEPARADOR ///////////////////////////////////////////////
 
 void readAndSaveData(){
 
@@ -912,7 +683,7 @@ void initDataofSamples(char * date, char *time, int isGPS){
 	strDepValues.dt = DT;
 	strDepValues.dataNumber = SPS;
 	/// se definene los valores de DELTA, NTPS, y dataNumber que es el numero de datos por segundo
-	// este no se incluye como tan en el archivo.
+	// este no se incluye como tal en el archivo.
 }
 
 void writeSac(int npts, int dataNumber, float *arr, float dt, char *axis ,char *filename)
@@ -964,5 +735,83 @@ void writeSac(int npts, int dataNumber, float *arr, float dt, char *axis ,char *
                 //updateData(filename,npts,arr);
                 //bwsac(npts,filename,arr);
            //     printf("metodo\n");
+}
+
+
+/// ------------------ *** metodos de pruebs *** ------------------------- ////
+
+void read_prueba_solo_pps(){
+
+	float dataX[1000] = {0};
+	float dataY[1000] = {0};
+	float dataZ[1000] = {0};
+
+	int num_data = 0;
+	int reading_ADC = 0;
+
+	int iii = 0;
+	int gggg = 0;
+	while(1){
+
+		if(getValue(&gpio26_PPS) == HIGH){
+		//if(getValue(&gpio68_SYNC) == LOW){
+			gggg = gggg + 1;
+			printf("\nggggg es  %d \n", gggg);
+			printf("\n ----- Senial pps ------- \n");
+			//writeI2C(0x0F,0x88);
+			reading_ADC = 1;
+
+			/*iii = 0;
+			while(iii<num_data){
+				printf("Counter: %d | X: %lf | Y:%lf | Z: %lf\n",iii, dataX[iii],dataY[iii],dataZ[iii]);
+				iii = iii + 1;
+			}*/
+
+			printf("Numero de datos: %d.\n", num_data);
+
+			num_data = 0;
+
+			printf("Comenzo Lectura pruebas.\n");
+			readDataPrueba(&dataX[num_data],&dataY[num_data],&dataZ[num_data]);
+			printf("Counter: %d | X: %lf | Y:%lf | Z: %lf\n",num_data, dataX[num_data],dataY[num_data],dataZ[num_data]);
+			num_data = num_data + 1;
+
+		}
+		else{
+			//gggg = 0;
+			//printf("low\n");
+			if(reading_ADC == 1){
+				readDataPrueba(&dataX[num_data],&dataY[num_data],&dataZ[num_data]);
+				//printf("Counter: %d | X: %lf | Y:%lf | Z: %lf\n",num_data, dataX[num_data],dataY[num_data],dataZ[num_data]);
+				//printf("Counter: %d\n",num_data);
+				num_data = num_data + 1;
+			}
+		}
+	}
+
+}
+
+void readDataPrueba(float * dataX, float * dataY, float * dataZ){
+
+	char recvX[6] = {0x00,};
+	char recvY[6] = {0x00,};
+	char recvZ[6] = {0x00,};
+
+    float adc_countX = 0;
+    float adc_countY = 0;
+    float adc_countZ = 0;
+
+	readAIN2_3(recvX);
+	readAIN4_5(recvY);
+	readAIN6_7(recvZ);
+
+	adc_countX = (float) (((unsigned long)recvX[1]<<24)|((unsigned long)recvX[2]<<16)|(recvX[3]<<8)|recvX[4]);
+	adc_countY = (float) (((unsigned long)recvY[1]<<24)|((unsigned long)recvY[2]<<16)|(recvY[3]<<8)|recvY[4]);
+	adc_countZ = (float) (((unsigned long)recvZ[1]<<24)|((unsigned long)recvZ[2]<<16)|(recvZ[3]<<8)|recvZ[4]);
+
+	*dataX = adc_countX;
+	*dataY = adc_countY;
+	*dataZ = adc_countZ;
+
 }
 

@@ -32,6 +32,8 @@ int readI2C(char * buffer){
 	int resultado; /* Numero de bytes resultantes de la lectura. */
 
     /*char buffer[BUF_SIZE_I2C];*/
+	printf("buffer antes\n");
+	printData(buffer);
 
 	writeAddr(0x00);
     resultado = read(rtc.file,buffer,BUF_SIZE_I2C);
@@ -41,6 +43,8 @@ int readI2C(char * buffer){
         perror(rtc.device);
         return -1;
     }
+	printf("buffer despues\n");
+	printData(buffer);
     buffer[resultado] = 0;
     return resultado;
 }
@@ -63,8 +67,7 @@ int writeI2C(unsigned int address, unsigned int content){
 
 	buffer[0] = address;
 	buffer[1] = content;
-	printf("Escribiendo (RTC): !%hhX! En la dirección  !%hhX! \n",content, address);
-
+	//printf("Escribiendo (RTC): !%hhX! En la direccion  !%hhX! \n",content, address);
 	bytes = write(rtc.file,buffer,2);
 
     if( bytes != 2) {
@@ -122,7 +125,7 @@ void saveDataRtc(char * buffer, char * dir){
 	//sprintf(values.date,"%02x%02x%02x",buffer[4],buffer[5],buffer[6]);
 	//sprintf(values.time,"%02x%02x%02x",buffer[2],buffer[1],buffer[0]);
 
-	printf("RTC archivo -> date: %s | time: %s \n",date,time);
+	//printf("RTC archivo -> date: %s | time: %s \n",date,time);
 	fprintf(archivo,"date: %s | time: %s",date,time);
 
 	fclose(archivo);
@@ -130,7 +133,7 @@ void saveDataRtc(char * buffer, char * dir){
 
 int activeAlarmRtc(){
 
-	printf("Activando alarma RTC.\n");
+	//printf("Activando alarma RTC.\n");
 	int res = 0;
 	res = writeI2C(A1M1_SECONDS,0x81);
 	if(res != -1){
@@ -211,7 +214,7 @@ void getDateRtc(char * buffer, char *I2C_DATA){
 
 int setTimeRtc(char * buffer){
 
-	printf("\nSincronizando hora  RTC y GPS\n");
+	//printf("\nSincronizando hora  RTC y GPS\n");
 	int res = 0;
 
 	char hor[2] = {buffer[0],buffer[1]};
@@ -244,7 +247,7 @@ int setTimeRtc(char * buffer){
 
 int setDateRtc(char * buffer){
 
-	printf("\nSincronizando fecha RTC y GPS\n");
+	//printf("\nSincronizando fecha RTC y GPS\n");
 	int res = 0;
 
 	char dia[2] = {buffer[0],buffer[1]};
@@ -255,8 +258,8 @@ int setDateRtc(char * buffer){
 	unsigned int num = (int)strtol(mes, NULL, 16);
 	unsigned int nua = (int)strtol(anio, NULL, 16);
 
-	/*printf("hora en Hexa es : !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n", buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5]);
-	printf("hora en ASCII es : !%c!!%c!!%c!!%c!!%c!!%c!\n", buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5]);
+	/*printf("Date en Hexa es : !%hhX!!%hhX!!%hhX!!%hhX!!%hhX!!%hhX!\n", buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5]);
+	printf("Date en ASCII es : !%c!!%c!!%c!!%c!!%c!!%c!\n", buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5]);
 	printf("Convertido  !%hhX! !%hhX! !%hhX!\n", nuh,num,nus);*/
 
 	res = writeI2C(DAY_OF_MONTH,nud); // 0x04 direccion del dia del mes
