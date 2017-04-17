@@ -77,7 +77,7 @@ gpioParams gpio68_SYNC; // para RTC
 gpioParams gpio26_PPS; // para GPS
 
 /*
- *  Obtiene y envia la información inicial del GPS:
+ *  Obtiene y envia la informaciï¿½n inicial del GPS:
  *  - Latitud
  *  - Longitud
  *  - Altitud
@@ -87,12 +87,12 @@ gpioParams gpio26_PPS; // para GPS
 void loadingGpsData();
 
 /*
- * Verifica la existencia de la señal PPS.
+ * Verifica la existencia de la seï¿½al PPS.
  * */
 void checkingPPS();
 
 /*
- * Activa la alarma cada segundo del RTC (Señal SYNC).
+ * Activa la alarma cada segundo del RTC (Seï¿½al SYNC).
  * Sincroniza RTC y GPS.
  * */
 
@@ -234,7 +234,7 @@ void loadingGpsData(){
 			if(difftime(fin,inicio) > 30.0){
 				if(difftime(fin,inicio) > diff){
 
-					sprintf(msg,"%s","Revisa la conexión del GPS, no se ha podido leer el dispositivo UART en mas 30 segundos de ejecución.");
+					sprintf(msg,"%s","Revisa la conexiï¿½n del GPS, no se ha podido leer el dispositivo UART en mas 30 segundos de ejecuciï¿½n.");
 					gpsJson(ERROR_STATUS_COMPONENT,"Venus GPS logger","115200","GGA - RMC",msg);
 
 					sendMsg(ALERTS_ERROR,GPS,msg,1);
@@ -267,7 +267,7 @@ void checkingPPS(){
 			fin = time(NULL);
 			if(difftime(fin,inicio) > 30.0){
 				if(difftime(fin,inicio) > diff){
-					sprintf(msg,"%s","Verifica la conexión de la señal PPS, no se ha podido capturar en mas 30 segundos de ejecución.");
+					sprintf(msg,"%s","Verifica la conexiï¿½n de la seï¿½al PPS, no se ha podido capturar en mas 30 segundos de ejecuciï¿½n.");
 					sendMsg(ALERTS_ERROR,GPS,msg,1);
 					gpsJson(ERROR_STATUS_COMPONENT,"Venus GPS logger","115200","GGA - RMC",msg);
 				}
@@ -292,14 +292,11 @@ void sincronizarRtc(){
 			if(res != -1){
 				if(isRmcStatusOk(buf) == 1){
 
-
 					getTimeGps(timeBuf,buf); // configurando Hora
 					setTimeRtc(timeBuf); // Sincroniza RTC y GPS.
 
 					getDateGps(dateBuf,buf); // configurando fecha
 					setDateRtc(dateBuf);
-
-
 
 					while(i < 30){
 
@@ -308,14 +305,13 @@ void sincronizarRtc(){
 						i++;
 					}
 
-					if(count > 1){
+					if(count > 4){
 						break;
 					}
 
 					count++;
 				}
 			}
-
 
 		}
 	}
@@ -337,6 +333,7 @@ void checkingSYNC(){
 	int diff = 0;
 	inicio = time(NULL);
 
+
 	res = readI2C(bufRtc);
 	if(res != -1){
 		printf("timeBuf es : %s\n", bufRtc);
@@ -348,53 +345,51 @@ void checkingSYNC(){
 		printf("fecha es : %s\n", fecha);
 
 	}
+/*
+	while(1){
 
-	/*while(1){
+		if(getValue(&gpio68_SYNC) == LOW){
+			inicio = time(NULL);
 
-			if(getValue(&gpio68_SYNC) == LOW){
-				inicio = time(NULL);
+			// Es necesario reinicar la bandera de la alarma en la direccion 0x0F.
+			writeI2C(0x0F,0x88);
 
-				// Es necesario reinicar la bandera de la alarma en la direccion 0x0F.
-				writeI2C(0x0F,0x88);
+			if(cont > 4){
 
-				if(sync == 1 && cont > 4){
+				res = readI2C(bufRtc);
+				if(res != -1){
+					printf("timeBuf es : %s\n", bufRtc);
 
-					res = readI2C(bufRtc);
-					if(res != -1){
-						printf("timeBuf es : %s\n", bufRtc);
+					getTimeRtc(timeBufRtc,bufRtc);
+					getDateRtc(dateBufRtc,bufRtc);
 
-						getTimeRtc(timeBufRtc,bufRtc);
-						getDateRtc(dateBufRtc,bufRtc);
-
-						sprintf(fecha,"%c%c/%c%c/%c%c %c%c:%c%c:%c%c",dateBufRtc[4],dateBufRtc[5],dateBufRtc[2],dateBufRtc[3],dateBufRtc[0],dateBufRtc[1], timeBufRtc[0],timeBufRtc[1],timeBufRtc[2],timeBufRtc[3],timeBufRtc[4],timeBufRtc[5]);
-						printf("fecha es : %s\n", fecha);
+					sprintf(fecha,"%c%c/%c%c/%c%c %c%c:%c%c:%c%c",dateBufRtc[4],dateBufRtc[5],dateBufRtc[2],dateBufRtc[3],dateBufRtc[0],dateBufRtc[1], timeBufRtc[0],timeBufRtc[1],timeBufRtc[2],timeBufRtc[3],timeBufRtc[4],timeBufRtc[5]);
+					printf("fecha es : %s\n", fecha);
 
 
-						rtcJson(CORRECT_STATUS_COMPONENT,"DS3231",fecha,"");
-						sendMsg(PUT_RTC_DATE,RTC,"",1);
-						sleep(1);
-						break;
-					}
-					else{
-						sprintf(msg,"%s","No se ha podido leer el dispositivo I2C, revisa la conexión del RTC.");
-						rtcJson(ERROR_STATUS_COMPONENT,"DS3231","",msg);
-						sendMsg(ALERTS_ERROR,RTC,msg,1);
-						break;
-					}
+					rtcJson(CORRECT_STATUS_COMPONENT,"DS3231",fecha,"");
+					sendMsg(PUT_RTC_DATE,RTC,"",1);
+					sleep(1);
+					break;
 				}
-				cont++;
+				else{
+					sprintf(msg,"%s","No se ha podido leer el dispositivo I2C, revisa la conexiï¿½n del RTC.");
+					rtcJson(ERROR_STATUS_COMPONENT,"DS3231","",msg);
+					sendMsg(ALERTS_ERROR,RTC,msg,1);
+					break;
+				}
 			}
-			else{
-				fin = time(NULL);
-				if(difftime(fin,inicio) > 20.0){
-					if(difftime(fin,inicio) > diff){
-						sprintf(msg,"%s","Verifica la conexión de SQW (pin de SYNC) del RTC, su lectura ha demorado demasiado.");
-						rtcJson(ERROR_STATUS_COMPONENT,"DS3231","",msg);
-						sendMsg(ALERTS_ERROR,RTC,msg,1);
-
-					}
-					diff = difftime(fin,inicio);
+			cont++;
+		}
+		else{
+			fin = time(NULL);
+			if(difftime(fin,inicio) > 20.0){
+				if(difftime(fin,inicio) > diff){
+					sprintf(msg,"%s","Verifica la conexiï¿½n de SQW (pin de SYNC) del RTC, su lectura ha demorado demasiado.");
+					rtcJson(ERROR_STATUS_COMPONENT,"DS3231","",msg);
+					sendMsg(ALERTS_ERROR,RTC,msg,1);
 				}
+				diff = difftime(fin,inicio);
 			}
 		}
 	}*/

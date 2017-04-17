@@ -60,9 +60,9 @@ int readUART(char * buf){
 		//perror(gps.device);
 		return -1;
 	}
-	printf("%s--\n", buf);
+	//printf("%s--\n", buf);
 	buf[resultado] = 0;
-	printf("%s--\n", buf);
+	//printf("%s--\n", buf);
 	return resultado;
 }
 
