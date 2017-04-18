@@ -8,15 +8,15 @@ gpiodir = $(lib)GPIO/
 socketdir = $(lib)SOCKET/
 jsonfilesdir = $(lib)JSON_FILES/
 
-MAIN = sensor.c
+MAIN = SensorIoT.c
 
 OBJECTS = $(jsonfilesdir)filesJ.o $(adcdir)adc.o $(gpsdir)gps.o $(rtcdir)rtc.o $(gpiodir)gpio.o $(sacdir)sacsubc.o  $(socketdir)socketlib.o
 
-sensor : $(OBJECTS)
+SensorIoT : $(OBJECTS)
 	gcc tests/testGps.c -o tests/testGps $(OBJECTS) -lrt -l json
 	gcc tests/testAdc.c -o tests/testAdc $(OBJECTS) -lrt -l json
 	gcc tests/testRtc.c -o tests/testRtc $(OBJECTS) -lrt -l json
-	gcc $(MAIN) -o sensor $(OBJECTS) -lrt -l json
+	gcc $(MAIN) -o SensorIoT $(OBJECTS) -lrt -l json
 
 $(jsonfilesdir)filesJ.o : $(jsonfilesdir)filesJ.c $(jsonfilesdir)
 	gcc -o $(jsonfilesdir)filesJ.o -lrt -l json -c $(jsonfilesdir)filesJ.c 
@@ -41,6 +41,6 @@ $(socketdir)socketlib.o : $(socketdir)socketlib.c $(socketdir)
 
 .PHONY : clean
 clean :
-	-rm sensor $(OBJECTS)
+	-rm SensorIoT $(OBJECTS)
 
 

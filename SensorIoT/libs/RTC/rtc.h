@@ -27,21 +27,21 @@
 	#define DECIVE_I2C "/dev/i2c-2"
 	#define BUF_SIZE_I2C 0x13
 
-	#define SECONDS 0x00 //00–59
-	#define MINUTES 0x01 //00–59
-	#define HOURS 0x02 //1–12 + AM/PM 00–23
+	#define SECONDS 0x00 //00ï¿½59
+	#define MINUTES 0x01 //00ï¿½59
+	#define HOURS 0x02 //1ï¿½12 + AM/PM 00ï¿½23
 	#define DAY_OF_WEEK 0x03 // 1 - 7
 	#define DAY_OF_MONTH 0x04 // 0 - 31
-	#define MONTH_CENTURY 0x05 // 01–12 + Century
-	#define YEAR 0x06 // 00–99
+	#define MONTH_CENTURY 0x05 // 01ï¿½12 + Century
+	#define YEAR 0x06 // 00ï¿½99
 
-	#define A1M1_SECONDS 0x07 //00–59
-	#define A1M2_MINUTES 0x08 //00–59
-	#define A1M3_HOUR 0x09 //1–12 + AM/PM 00–23
+	#define A1M1_SECONDS 0x07 //00ï¿½59
+	#define A1M2_MINUTES 0x08 //00ï¿½59
+	#define A1M3_HOUR 0x09 //1ï¿½12 + AM/PM 00ï¿½23
 	#define A1M4_DAY_DATE 0x0A // 1 - 7 or 0 - 31
 
-	#define A2M2_MINUTES 0x0B //00–59
-	#define A2M3_HOUR 0x0C //1–12 + AM/PM 00–23
+	#define A2M2_MINUTES 0x0B //00ï¿½59
+	#define A2M3_HOUR 0x0C //1ï¿½12 + AM/PM 00ï¿½23
 	#define A2M4_DAY_DATE 0x0D // 1 - 7 or 0 - 31
 
 	#define EOSC 0x0E
@@ -64,6 +64,8 @@
 	int readI2C(char * buffer);
 	int writeI2C(unsigned int address, unsigned int data);
 	int closeI2C();
+
+	int writeAddr(unsigned int address);
 
 	void errorRtc(char *msgError);
 	void printData(char * buffer);

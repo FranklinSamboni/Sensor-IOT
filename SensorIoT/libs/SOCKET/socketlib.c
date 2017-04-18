@@ -1,6 +1,9 @@
 #include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include <string.h>
 #include <netdb.h>
 #include "socketlib.h"
@@ -19,7 +22,7 @@ int openSOCKET(char * host_ip, int port){
         return -1;
     }
 
-    inet_pton(AF_INET, host_ip, &ipv4addr); // host_ip -> Dirección ip del servidor.
+    inet_pton(AF_INET, host_ip, &ipv4addr); // host_ip -> Direcciï¿½n ip del servidor.
     host = gethostbyaddr(&ipv4addr, sizeof(ipv4addr), AF_INET);
 
     if (host == NULL) {

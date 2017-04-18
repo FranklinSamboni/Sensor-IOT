@@ -20,7 +20,7 @@
  * envia la información ya sea en forma binaria o en formato NMEA.
  *
  * Este dispositivo envia la información cada segundo, ademas cuenta con una señal PPS
- * que se activa cada segundo y nos servir� de sincronizació del sistema.
+ * que se activa cada segundo y nos servir� de sincronizació del sistema.
  *
  * Para mas información consultar su datasheet.
  * http://cdn.sparkfun.com/datasheets/Sensors/GPS/Venus638FLPx.pdf
@@ -107,7 +107,7 @@
 	int isRmcStatusOk(char * buffer);
 
 	int isGGA(char * buffer);
-	int isGGA(char * buffer);
+	int isRMC(char * buffer);
 
 	int getTimeGps(char * buffer, char * GGA_NEMEA);
 	int getDateGps(char * buffer, char * RMC_NEMEA);

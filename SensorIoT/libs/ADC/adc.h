@@ -3,13 +3,13 @@
 
 /*
  * Esta libreria corresponde al ADS1262, que es un ADC de 32 bit de bajo ruido,
- * diseñado por TI, se puede encontrar el data sheet de este dispositivo en:
+ * diseï¿½ado por TI, se puede encontrar el data sheet de este dispositivo en:
  * http://www.ti.com/lit/ds/symlink/ads1262.pdf
  *
- * El ADC tiene una interfaz SPI con la cual se puede interacuar con el. A través de la
+ * El ADC tiene una interfaz SPI con la cual se puede interacuar con el. A travï¿½s de la
  * interfaz SPI se realiza los procesos de configuracion de los registros del ADC, el ADC tiene
  * 27 registros de 8 bits. Ademas, con los comandos del ADC se puede leer y escribir los registros,
- * leer los datos de conversión, controlar los modos de conversion, etc.
+ * leer los datos de conversiï¿½n, controlar los modos de conversion, etc.
  * */
 
 	#include <stdint.h>

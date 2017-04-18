@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <string.h>
+#include <unistd.h>
 #include <json/json.h>
 #include <stdint.h>
 #include <time.h>
@@ -18,6 +19,12 @@
  * Directions INPUT, OUTPUT
  * Values LOW, HIGH
  * 	*/
+/*
+arm-linux-gnueabihf-gcc SensorIoT.c -o /home/frank/workspace/SensorIoT/Degub/SensorIoT libs/SOCKET/socketlib.o  libs/SAC_FILES/sacsubc.o libs/RTC/rtc.o  libs/JSON_FILES/filesJ.o libs/GPS/gps.o libs/GPIO/gpio.o  libs/ADC/adc.o -lrt -l json*/
+/*
+arm-linux-gnueabihf-gcc -o filesJ.o -lrt -l json -c filesJ.c
+ */
+
 
 /*
  * Usar 0x?A o 0x?B en el registro MODE2 del adc para conseguir valores de 200 muestras por segundo.
@@ -165,7 +172,7 @@ int main(int argc, char *argv[]){
 
 void sendMsg(char * process, char *component, char * msg, int last){
 
-	json_object *jobj = json_object_new_object();
+	/*json_object *jobj = json_object_new_object();
 
 	json_object *jtype = json_object_new_string(TYPE);
 	json_object *jprocess = json_object_new_string(process);
@@ -179,7 +186,7 @@ void sendMsg(char * process, char *component, char * msg, int last){
 	json_object_object_add(jobj,"msg", jmsg);
 	json_object_object_add(jobj,"last", jlast);
 
-	writeSOCKET(json_object_to_json_string(jobj));
+	writeSOCKET(json_object_to_json_string(jobj));*/
 	sleep(1);
 
 }
@@ -221,8 +228,8 @@ void loadingGpsData(){
 				getTimeGps(timeGps,buf);
 				if(flag == 1){
 
-					gpsJson(CORRECT_STATUS_COMPONENT,"Venus GPS logger","115200","GGA - RMC","");
-					locationJson(lat, lng,alt);
+					//gpsJson(CORRECT_STATUS_COMPONENT,"Venus GPS logger","115200","GGA - RMC","");
+					//locationJson(lat, lng,alt);
 
 					sendMsg(PUT_LOCATION,GPS,"",1);
 					break;
@@ -235,7 +242,7 @@ void loadingGpsData(){
 				if(difftime(fin,inicio) > diff){
 
 					sprintf(msg,"%s","Revisa la conexi�n del GPS, no se ha podido leer el dispositivo UART en mas 30 segundos de ejecuci�n.");
-					gpsJson(ERROR_STATUS_COMPONENT,"Venus GPS logger","115200","GGA - RMC",msg);
+					//gpsJson(ERROR_STATUS_COMPONENT,"Venus GPS logger","115200","GGA - RMC",msg);
 
 					sendMsg(ALERTS_ERROR,GPS,msg,1);
 					sleep(1);
@@ -269,7 +276,7 @@ void checkingPPS(){
 				if(difftime(fin,inicio) > diff){
 					sprintf(msg,"%s","Verifica la conexi�n de la se�al PPS, no se ha podido capturar en mas 30 segundos de ejecuci�n.");
 					sendMsg(ALERTS_ERROR,GPS,msg,1);
-					gpsJson(ERROR_STATUS_COMPONENT,"Venus GPS logger","115200","GGA - RMC",msg);
+					//gpsJson(ERROR_STATUS_COMPONENT,"Venus GPS logger","115200","GGA - RMC",msg);
 				}
 				diff = difftime(fin,inicio);
 			}
@@ -319,19 +326,22 @@ void sincronizarRtc(){
 
 void checkingSYNC(){
 
-	int res = 0, sync = 0;
-	int cont = 0;
-	char buf[255] = {0}, bufRtc[255] = {0};;
-	char timeBuf[24] = {0}, dateBuf[24] = {0};
+	int res = 0;
+	//int sync = 0;
+	//int cont = 0;
+	//char buf[255] = {0},
+	char bufRtc[255] = {0};;
+	//char timeBuf[24] = {0}, dateBuf[24] = {0};
 	char timeBufRtc[24] = {0}, dateBufRtc[24] = {0};
 	char fecha[50] = {0};
-	char msg[255] = {0};
+	//char msg[255] = {0};
 
 	activeAlarmRtc();
 
-	time_t inicio, fin;
+	/*time_t inicio, fin;
 	int diff = 0;
 	inicio = time(NULL);
+	*/
 
 
 	res = readI2C(bufRtc);
@@ -744,7 +754,7 @@ void read_prueba_solo_pps(){
 	int num_data = 0;
 	int reading_ADC = 0;
 
-	int iii = 0;
+	//int iii = 0;
 	int gggg = 0;
 	while(1){
 
@@ -809,4 +819,3 @@ void readDataPrueba(float * dataX, float * dataY, float * dataZ){
 	*dataZ = adc_countZ;
 
 }
-

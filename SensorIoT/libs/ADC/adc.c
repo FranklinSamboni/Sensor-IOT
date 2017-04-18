@@ -1,9 +1,9 @@
 #include <stdint.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
-#include <fcntl.h>
 #include <string.h>
 #include <math.h>
 #include <sys/ioctl.h>
@@ -181,7 +181,7 @@ void settingPins(){
 
 	initGPIO(GPIO_START, &pinStart);
 	setDirection(OUTPUT, &pinStart);
-	// como vamos a realizar configuración de los registro mantenemos START en bajo
+	// como vamos a realizar configuraciï¿½n de los registro mantenemos START en bajo
 	setValue(LOW,&pinStart);
 
 	initGPIO(GPIO_DRDY, &pinDrdy);
@@ -234,7 +234,7 @@ int transfer(unsigned char * sendBuffer, unsigned char * recvbuffer, int length)
 
 	result = ioctl(adc.file, SPI_IOC_MESSAGE(1), &tr);
 	if (result < 1){
-		errorADC("Error enviando mensaje através del SPI.");
+		errorADC("Error enviando mensaje atravï¿½s del SPI.");
 		perror(adc.device);
 	}
 	return result;
@@ -356,13 +356,13 @@ double getVoltage(char *ADC_data, double VREF){
 	unsigned long adc_count = 0;
 	double resolution = 0;
 	double Vol_V = 0;
-	double Vol_mV = 0;
+	//double Vol_mV = 0;
 
 	adc_count = (((unsigned long)ADC_data[1]<<24)|((unsigned long)ADC_data[2]<<16)|(ADC_data[3]<<8)|ADC_data[4]);
 	resolution = VREF / pow(2.0, 31);
 
 	Vol_V = resolution * (double) adc_count;
-	Vol_mV = Vol_V * 1000;
+	//Vol_mV = Vol_V * 1000;
 
 
 	//printf("\nadc_count es: %lu\n", adc_count);

@@ -1,11 +1,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include "gps.h"
 
 gpsStr gps;
@@ -55,7 +56,7 @@ int readUART(char * buf){
 
 	resultado = read(gps.file,buf,255);
 	if(resultado < 0){
-		char msg[] = "Error leyendo el UART.";
+		//char msg[] = "Error leyendo el UART.";
 		//errorGps(msg);
 		//perror(gps.device);
 		return -1;
@@ -275,7 +276,7 @@ void errorGps(char *msgError){
 }
 
 void printBuffer(int size, char * buffer){
-	int i = 0;
+	//int i = 0;
 	/*printf("Leyendo Buffer # bytes: %d ------------\n",size);
 	while (i < size){ // imprimir el mensaje en hexadecimal.
 			printf("!%hhX!",buffer[i]);

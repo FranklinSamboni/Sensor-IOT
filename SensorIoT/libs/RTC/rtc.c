@@ -4,7 +4,9 @@
 #include <linux/i2c-dev.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "rtc.h"
 
 rtcStr rtc;
@@ -229,11 +231,11 @@ int setTimeRtc(char * buffer){
 	printf("hora en ASCII es : !%c!!%c!!%c!!%c!!%c!!%c!\n", buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5]);
 	printf("Convertido  !%hhX! !%hhX! !%hhX!\n", nuh,num,nus);*/
 
-	res = writeI2C(HOURS,nuh); // 0x02 dirección del regitro de hora
+	res = writeI2C(HOURS,nuh); // 0x02 direcciï¿½n del regitro de hora
 	if(res != -1){
-		res = writeI2C(MINUTES,num); // 0x01 dirección del regitro de minutos
+		res = writeI2C(MINUTES,num); // 0x01 direcciï¿½n del regitro de minutos
  		if(res != -1){
-			res = writeI2C(SECONDS,nus); // 0x00 dirección del regitro de segundos
+			res = writeI2C(SECONDS,nus); // 0x00 direcciï¿½n del regitro de segundos
  			if(res != -1){
 				return 1;
 			}

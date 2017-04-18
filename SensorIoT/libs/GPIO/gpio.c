@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include "gpio.h"
 
 void initGPIO(int number, gpioParams* params){
@@ -67,7 +69,7 @@ int writeGPIO(char * path, char * filename, char * value){
 	if(fp == NULL){
 		return -1;
 	}
-	fprintf(fp, value);
+	fprintf(fp,"%s",value);
 	fclose(fp);
 	return 1;
 }
