@@ -209,12 +209,20 @@ void sendSamples(float * samplesX, float * samplesY, float * samplesZ){
 	json_object *jelementsY[SPS] = {0};
 	json_object *jelementsZ[SPS] = {0};
 
+	float dataX[50] = {0};
+	float dataY[50] = {0};
+	float dataZ[50] = {0};
+	int factor = MAX_SPS/50;
+
+	subMuestreo_xxx(samplesX, dataX, factor);
+	subMuestreo_xxx(samplesY, dataY, factor);
+	subMuestreo_xxx(samplesZ, dataZ, factor);
 
 	int i = 0;
-	while(i < SPS){
-		jelementsX[i] = json_object_new_double(samplesX[i]);
-		jelementsY[i] = json_object_new_double(samplesY[i]);
-		jelementsZ[i] = json_object_new_double(samplesZ[i]);
+	while(i < 50){
+		jelementsX[i] = json_object_new_double(dataX[i]);
+		jelementsY[i] = json_object_new_double(dataY[i]);
+		jelementsZ[i] = json_object_new_double(dataZ[i]);
 
 		json_object_array_add(jarrayX,jelementsX[i]);
 		json_object_array_add(jarrayY,jelementsY[i]);
@@ -258,7 +266,7 @@ void loadingGpsData(){
 
 		if(res != -1){
 			inicio = time(NULL);
-			//printBuffer(res,buf);
+			printBuffer(res,buf);
 			if(isGGA(buf) == 1){
 				if(getAlt(alt,buf) != -1) {
 					flag = 1;
@@ -274,9 +282,9 @@ void loadingGpsData(){
 					gpsJson(CORRECT_STATUS_COMPONENT,"Venus GPS logger","115200","GGA - RMC","");
 					locationJson(lat, lng,alt);
 
-					char sps[32] = {0};
+					/*char sps[32] = {0};
 					sprintf(sps,"%s",SPS);
-					adcJson(CORRECT_STATUS_COMPONENT,"ads1262 de 32 bits",sps,"");
+					adcJson(CORRECT_STATUS_COMPONENT,"ads1262 de 32 bits",sps,"");*/
 
 					sendMsg(PUT_LOCATION,GPS,"",1);
 					sleep(1);
@@ -621,8 +629,6 @@ int readAnalogInputsAndSaveData(char * date, char * time, int isGPS){
 	subMuestreo_xxx(dataY, samplesY, factor);
 	subMuestreo_xxx(dataZ, samplesZ, factor);
 
-	sendSamples(samplesX,samplesY,samplesZ);
-
 	strDepValues.npts = strDepValues.npts + strDepValues.dataNumber;
 
 	writeSac(strDepValues.npts,strDepValues.dataNumber,samplesX,strDepValues.dt,axisX,currentDirectoryX);
@@ -630,6 +636,9 @@ int readAnalogInputsAndSaveData(char * date, char * time, int isGPS){
 	writeSac(strDepValues.npts,strDepValues.dataNumber,samplesZ,strDepValues.dt,axisZ,currentDirectoryZ);
 
 	printf("Termino camptura de datos ADC\n");
+
+	sendSamples(samplesX,samplesY,samplesZ);
+
 	//fclose(sampleFile);
 	count = 0;
 	return 0;
