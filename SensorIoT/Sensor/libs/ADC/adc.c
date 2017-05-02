@@ -12,6 +12,12 @@
 #include "../GPIO/gpio.h"
 #include "adc.h"
 
+/*
+ * Usar 0x?B o 0x?C en el registro MODE2 del adc para conseguir valores de 200 muestras por segundo.
+ * Usar 0x?9 en el registro MODE2 del adc para conseguir valores de 160 muestras por segundo.
+ * Usar 0x?8 en el registro MODE2 del adc para conseguir valores de 80 muestras por segundo.
+ */
+
 adcStr adc;
 gpioParams pinReset; // para RESET - out
 gpioParams pinStart; // para START - out
@@ -105,6 +111,7 @@ void settingTestADC(){
 	//writeRegister(MODE2, 0x08); // PGA disabled y 400 SPS
 	//writeRegister(MODE2, 0x88);
 	writeRegister(MODE2, 0x84); // 20 sps
+
 	usleep(10);
 
 	writeRegister(INPMUX, 0x01); // Select AIN0 como AINP Y AIN1 COMO AINN
@@ -128,7 +135,7 @@ void settingADC(){
 
 	//writeRegister(MODE2, 0x08); // PGA disabled y 400 SPS
 	//writeRegister(MODE2, 0x88);
-	writeRegister(MODE2, 0x8F);
+	writeRegister(MODE2, 0x8B);
 	usleep(10);
 
 	writeRegister(INPMUX, 0x23); // Select AIN2 como AINP Y AIN3 COMO AINN

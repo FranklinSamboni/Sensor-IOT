@@ -7,13 +7,14 @@ rtcdir = $(lib)RTC/
 gpiodir = $(lib)GPIO/
 socketdir = $(lib)SOCKET/
 jsonfilesdir = $(lib)JSON_FILES/
+eventsdir = $(lib)EVENTS/
 
 MAIN = SensorIoT.c
 
-CFLAGS =  -O0 -g3 -Wall -c -fmessage-length=0 
+CFLAGS =  -O0 -g3 -Wall -c -fmessage-length=0  -lm
 
 
-OBJECTS = $(jsonfilesdir)filesJ.o $(adcdir)adc.o $(gpsdir)gps.o $(rtcdir)rtc.o $(gpiodir)gpio.o $(sacdir)sacsubc.o  $(socketdir)socketlib.o
+OBJECTS = $(eventsdir)staLta.o $(jsonfilesdir)filesJ.o $(adcdir)adc.o $(gpsdir)gps.o $(rtcdir)rtc.o $(gpiodir)gpio.o $(sacdir)sacsubc.o  $(socketdir)socketlib.o 
 OBJECTSRTC =  $(rtcdir)rtc.o $(gpiodir)gpio.o  $(socketdir)socketlib.o
 OBJECTSGPS =  $(gpsdir)gps.o $(gpiodir)gpio.o  $(socketdir)socketlib.o
 OBJECTSADC =  $(adcdir)adc.o $(gpiodir)gpio.o  $(socketdir)socketlib.o
@@ -22,10 +23,13 @@ OBJECTSADC =  $(adcdir)adc.o $(gpiodir)gpio.o  $(socketdir)socketlib.o
 all: SensorIoT
 
 SensorIoT : $(OBJECTS)
-	gcc tests/testGps.c -o tests/testGps $(OBJECTSGPS) -lrt -l json
-	gcc tests/testAdc.c -o tests/testAdc $(OBJECTSADC) -lrt -l json
-	gcc tests/testRtc.c -o tests/testRtc $(OBJECTSRTC) -lrt -l json 
-	gcc $(MAIN) -o SensorIoT $(OBJECTS) -lrt -l json
+	gcc -O0 -g3 -Wall tests/testGps.c -o tests/testGps $(OBJECTSGPS) -lrt -l json -lm
+	gcc -O0 -g3 -Wall tests/testAdc.c -o tests/testAdc $(OBJECTSADC) -lrt -l json -lm
+	gcc -O0 -g3 -Wall tests/testRtc.c -o tests/testRtc $(OBJECTSRTC) -lrt -l json -lm
+	gcc -O0 -g3 -Wall $(MAIN) -o SensorIoT $(OBJECTS) -lrt -l json -lm 
+
+$(eventsdir)staLta.o : $(eventsdir)staLta.c $(eventsdir)
+	gcc $(CFLAGS) -o $(eventsdir)staLta.o -c $(eventsdir)staLta.c
 
 $(jsonfilesdir)filesJ.o : $(jsonfilesdir)filesJ.c $(jsonfilesdir)
 	gcc $(CFLAGS) -o $(jsonfilesdir)filesJ.o -lrt -l json -c $(jsonfilesdir)filesJ.c  
@@ -47,6 +51,8 @@ $(gpiodir)gpio.o : $(gpiodir)gpio.c $(gpiodir)
 	
 $(socketdir)socketlib.o : $(socketdir)socketlib.c $(socketdir)
 	gcc $(CFLAGS) -o $(socketdir)socketlib.o -c $(socketdir)socketlib.c 
+
+
 
 clean :
 	-rm SensorIoT $(OBJECTS)

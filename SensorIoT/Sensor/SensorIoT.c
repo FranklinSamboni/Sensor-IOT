@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <math.h>
 #include "libs/ADC/adc.h"
 #include "libs/GPS/gps.h"
 #include "libs/RTC/rtc.h"
@@ -17,22 +18,13 @@
 #include "libs/SOCKET/socketlib.h"
 #include "libs/SAC_FILES/sacsubc.h"
 #include "libs/JSON_FILES/filesJ.h"
+#include "libs/EVENTS/staLta.h"
+
 /*
  * Directions INPUT, OUTPUT
  * Values LOW, HIGH
- * 	*/
-/*
-arm-linux-gnueabihf-gcc SensorIoT.c -o /home/frank/workspace/SensorIoT/Degub/SensorIoT libs/SOCKET/socketlib.o  libs/SAC_FILES/sacsubc.o libs/RTC/rtc.o  libs/JSON_FILES/filesJ.o libs/GPS/gps.o libs/GPIO/gpio.o  libs/ADC/adc.o -lrt -l json*/
-/*
-arm-linux-gnueabihf-gcc -o filesJ.o -lrt -l json -c filesJ.c
  */
 
-
-/*
- * Usar 0x?A o 0x?B en el registro MODE2 del adc para conseguir valores de 200 muestras por segundo.
- * Usar 0x?9 en el registro MODE2 del adc para conseguir valores de 160 muestras por segundo.
- * Usar 0x?8 en el registro MODE2 del adc para conseguir valores de 80 muestras por segundo.
- */
 
 #define TYPE "MAIN"
 
@@ -54,25 +46,30 @@ arm-linux-gnueabihf-gcc -o filesJ.o -lrt -l json -c filesJ.c
 #define BAT "BAT"
 #define WIFI "WIFI"
 
+#define EVENT "EVENT"
+
+#define AXI_X "BH2"
+#define AXI_Y "BH1"
+#define AXI_Z "BHZ"
+
 /*-----*/
 
 #define SAMPLES_DIR_R "/home/debian/Sensor-IOT/SensorIoT/muestras"
+#define EVENTS_DIR_R "/home/debian/Sensor-IOT/SensorIoT/eventos"
+
 #define BILLION 1000000000L
 
-#define MAX_SPS 400
-#define SPS 200
-#define DT 0.005
+#define MAX_SPS 200
 
-//#define SPS 200
-//#define DT 0.005
+int SPS = 0;
+float DT = 0.0;
+
+int flagEvent = 0;
 
 char currentDirectoryX[100] = {0};
 char currentDirectoryY[100] = {0};
 char currentDirectoryZ[100] = {0};
 
-char axisX[] = "BH2";
-char axisY[] = "BH1";
-char axisZ[] = "BHZ";
 
 /*float dt = 0.005 ;
 int npts = 0;
@@ -82,29 +79,18 @@ int dataNumber = 200;*/
 fullDate strFullDate;
 depValues strDepValues;
 
+eventData eventX;
+eventData eventY;
+eventData eventZ;
+
 gpioParams gpio68_SYNC; // para RTC
 gpioParams gpio26_PPS; // para GPS
 
-/*
- *  Obtiene y envia la informaci�n inicial del GPS:
- *  - Latitud
- *  - Longitud
- *  - Altitud
- *  - Fecha
- *  - Tiempo
- *   */
+void printfOpt();
+void openDevices();
+void closeDevices();
 void loadingGpsData();
-
-/*
- * Verifica la existencia de la se�al PPS.
- * */
 void checkingPPS();
-
-/*
- * Activa la alarma cada segundo del RTC (Se�al SYNC).
- * Sincroniza RTC y GPS.
- * */
-
 void sincronizarRtc();
 void checkingSYNC();
 void readAndSaveData();
@@ -114,15 +100,162 @@ void sendSamples(float * samplesX, float * samplesY, float * samplesZ);
 void readWithRTC();
 int readAnalogInputsAndSaveData(char * date, char * time, int isGPS);
 void createDirRtc(char *dir, char *axis,char * date, char *time, int isGPS, int last);
-void writeSac(int npts, int numData, float *arr, float dt, char *axis ,char *filename);
-void initDataofSamples(char * date, char *time, int isGPS);
+void writeSac(fullDate * strFullDate, depValues * strDepValues, int npts, int dataNumber, float *arr, float dt, char *axis ,char *filename);
+void getSacFormatDate(fullDate * strDate,char * date, char *time, int isGPS);
 void subMuestreo_xxx(float *currentData, float *newData, int factor);
 
-void readDataPrueba(float * dataX, float * dataY, float * dataZ);
-void read_prueba_solo_pps();
+void createEventFile(eventData * event);
+void clearFloatBuffer(float * buffer, int ln);
+//void writeEventFile(fullDate * fullDataEvent, int npts, float *arr, float dt, char *axis, char *filename);
 
 int main(int argc, char *argv[]){
 
+	float sta = 0.0;
+	float ltaTemp = 0;
+	int lta = 0;
+	float on = 0.0;
+	float off = 0.0;
+	float min = 0.0;
+	int preEvent = 0;
+	int postEvent = 0;
+
+	int c;
+	opterr = 0;
+
+	while ((c = getopt (argc, argv, "f:vs:l:o:p:m:b:a:")) != -1){
+		//printf("%d", c);
+		switch (c)
+		{
+	    case 'f':
+	    	SPS = atoi(optarg);
+	    	break;
+	    case 'v':
+	    	flagEvent = 1;
+	    	break;
+	    case 's':
+	    	sta = atof(optarg);
+	    	break;
+	    case 'l':
+	    	ltaTemp = atof(optarg);
+	    	break;
+	    case 'o':
+	    	on = atof(optarg);
+	    	break;
+	    case 'p':
+	    	off = atof(optarg);
+	    	break;
+	    case 'm':
+	    	min = atof(optarg);
+	    	break;
+	    case 'b':
+	    	preEvent = atoi(optarg);
+	    	break;
+	    case 'a':
+	    	postEvent = atoi(optarg);
+	    	break;
+	    case '?':
+	    	if (isprint (optopt)){
+	    		fprintf (stderr, "Opción desconocida `-%c'.\n", optopt);
+	    		printfOpt();
+	    	}
+	    	return 1;
+	    default:
+	    	if (isprint (optopt)){
+	    		fprintf (stderr, "Opción desconocida `-%c'.\n", optopt);
+	    		printfOpt();
+	    	}
+	    	return 1;
+	    	break;
+		}
+	}
+
+	if(SPS == 0){
+
+		printfOpt();
+		exit(0);
+	}
+
+	else if(flagEvent == 1){
+		if(sta == 0.0 || ltaTemp == 0 ||  on == 0.0 ||  off == 0.0 ||  min == 0.0 || preEvent == 0 || postEvent == 0){
+			printfOpt();
+			exit(0);
+		}
+		else if( ltaTemp <= sta ){
+			printf("La opción '-s' (segundos STA) debe tener un valor menor que la opción '-l' (segundos LTA).\n");
+			exit(0);
+		}
+		else if(on <= off){
+			printf("La opción '-p' (parador) debe tener un valor menor que la opción '-o' (disparador).\n");
+			exit(0);
+		}
+		else{
+
+			lta = round(ltaTemp);
+			printf("lta segundos redondeado es %d\n", lta);
+
+		}
+
+	}
+
+	if(SPS == 40 || SPS == 50 || SPS == 100 || SPS == 200){
+		DT = (float)(1.0 / SPS);
+		printf("dt es : %f \n", DT);
+	}
+
+	else{
+		printf("Opciones disponibles '-f 40' '-f 50' '-f 100' '-f 200'\n");
+		printf("ej. './SensorIoT -f 200'\n");
+		exit(0);
+	}
+
+
+	openDevices();
+
+	//(int freq,  float staSeconds, int ltaSeconds, float thOn, float thOff, float minimunDurationSeconds)
+	defaultParams(SPS);
+	if(flagEvent == 1){
+		setParamsSTA_LTA(SPS,  sta, lta, on, off, min,preEvent,postEvent);
+	}
+
+	printf("se llamo a settingPins\n");
+	settingPins(); // Configurar pines de control del ADC
+	printf("se llamo a settingADC\n");
+	settingADC();
+
+	printf("se llamo a loadingGpsData\n");
+	loadingGpsData();
+	printf("se llamo a checkingPPS\n");
+	checkingPPS();
+	printf("se llamo a sincronizarRtc\n");
+	sincronizarRtc();
+	printf("se llamo a checkingSYNC\n");
+	checkingSYNC();
+
+	readAndSaveData();
+
+	closeDevices();
+
+	return 0;
+}
+
+void printfOpt(){
+	printf("La opción '-f' y su argumento es requerido. \nOpciones disponibles '-f 40' '-f 50' '-f 100' '-f 200'\n");
+	printf("ej. './SensorIoT -f 200'\n");
+
+	printf("\n(Opcional)\n");
+	printf("Al activar la opción '-v' (Eventos). Debes ingresar obligatoriamente las opciones:\n");
+	printf("'-s' segundos de la ventana STA				ejm. '-s 0.8'\n");
+	printf("'-l' segundos de la ventana LTA 			emj. '-l 8'\n");
+	printf("'-o' disparador 							emj. '-o 14.0'\n");
+	printf("'-p' parador 								emj. '-p 10.0'\n");
+	printf("'-m' dirección minima de eventos en segundos emj. '-m 3.0'\n");
+	printf("'-b' duración pre evento en segundos		 emj. '-b 3'\n");
+	printf("'-a' duración post evento en segundos 		emj. '-a 3'\n");
+
+	printf("\n Ejemplo : './SensorIoT -f 200 -v -s 0.8 -l 8 -o 14.0 -p 10.0 -m 3.0 -b 3 -a 3'\n");
+}
+
+void openDevices(){
 	initGPIO(68, &gpio68_SYNC);
 	setDirection(INPUT, &gpio68_SYNC);
 
@@ -145,23 +278,9 @@ int main(int argc, char *argv[]){
 	if (openSPI(DECIVE_SPI) < 0){
 		exit(0);
 	}
+}
 
-	printf("se llamo a settingPins\n");
-	settingPins(); // Configurar pines de control del ADC
-	printf("se llamo a settingADC\n");
-	settingADC();
-
-	printf("se llamo a loadingGpsData\n");
-	loadingGpsData();
-	printf("se llamo a checkingPPS\n");
-	checkingPPS();
-	printf("se llamo a sincronizarRtc\n");
-	sincronizarRtc();
-	printf("se llamo a checkingSYNC\n");
-	checkingSYNC();
-
-	readAndSaveData();
-
+void closeDevices(){
 	destroyGPIO(&gpio68_SYNC);
 	destroyGPIO(&gpio26_PPS);
 	desactiveAlarmRtc();
@@ -169,8 +288,6 @@ int main(int argc, char *argv[]){
 	closeI2C();
 	closeSOCKET();
 	closeSPI();
-
-	return 0;
 }
 
 void sendMsg(char * process, char *component, char * msg, int last){
@@ -206,30 +323,38 @@ void sendSamples(float * samplesX, float * samplesY, float * samplesZ){
 	json_object *jarrayY = json_object_new_array();
 	json_object *jarrayZ = json_object_new_array();
 
-	json_object *jelementsX[SPS] = {0};
-	json_object *jelementsY[SPS] = {0};
-	json_object *jelementsZ[SPS] = {0};
+	json_object *jelementsX[2] = {0};
+	json_object *jelementsY[2] = {0};
+	json_object *jelementsZ[2] = {0};
 
-	float dataX[50] = {0};
+	/*float dataX[50] = {0};
 	float dataY[50] = {0};
-	float dataZ[50] = {0};
-	int factor = MAX_SPS/50;
+	float dataZ[50] = {0};*/
+	//int factor = MAX_SPS/50;
 
-	subMuestreo_xxx(samplesX, dataX, factor);
-	subMuestreo_xxx(samplesY, dataY, factor);
-	subMuestreo_xxx(samplesZ, dataZ, factor);
+	//subMuestreo_xxx(samplesX, dataX, factor);
+	//subMuestreo_xxx(samplesY, dataY, factor);
+	//subMuestreo_xxx(samplesZ, dataZ, factor);
 
-	int i = 0;
-	while(i < 2){
-		jelementsX[i] = json_object_new_double(dataX[i]);
-		jelementsY[i] = json_object_new_double(dataY[i]);
-		jelementsZ[i] = json_object_new_double(dataZ[i]);
+	//int i = 0;
+	//while(i < 2){
+		jelementsX[0] = json_object_new_double(samplesX[0]);
+		jelementsY[0] = json_object_new_double(samplesY[0]);
+		jelementsZ[0] = json_object_new_double(samplesZ[0]);
 
-		json_object_array_add(jarrayX,jelementsX[i]);
-		json_object_array_add(jarrayY,jelementsY[i]);
-		json_object_array_add(jarrayZ,jelementsZ[i]);
-		i++;
-	}
+		json_object_array_add(jarrayX,jelementsX[0]);
+		json_object_array_add(jarrayY,jelementsY[0]);
+		json_object_array_add(jarrayZ,jelementsZ[0]);
+
+		jelementsX[1] = json_object_new_double(samplesX[1]);
+		jelementsY[1] = json_object_new_double(samplesY[1]);
+		jelementsZ[1] = json_object_new_double(samplesZ[1]);
+
+		json_object_array_add(jarrayX,jelementsX[1]);
+		json_object_array_add(jarrayY,jelementsY[1]);
+		json_object_array_add(jarrayZ,jelementsZ[1]);
+		//i++;
+	//}
 
 	json_object_object_add(jobj,"type", jtype);
 	json_object_object_add(jobj,"process", jprocess);
@@ -261,13 +386,16 @@ void loadingGpsData(){
 	time_t inicio, fin;
 	int diff = 0;
 	inicio = time(NULL);
-
+	printf("limpiando\n");
+	clearUartBuffer();
+	printf("termino limpieza\n");
 	while(1){
-		res = readUART(buf);
 
+		res = readUART(buf);
 		if(res != -1){
+			//printBuffer(res,buf);
 			inicio = time(NULL);
-			printBuffer(res,buf);
+
 			if(isGGA(buf) == 1){
 				if(getAlt(alt,buf) != -1) {
 					flag = 1;
@@ -287,7 +415,7 @@ void loadingGpsData(){
 					sprintf(sps,"%s",SPS);
 					adcJson(CORRECT_STATUS_COMPONENT,"ads1262 de 32 bits",sps,"");*/
 
-					sendMsg(PUT_LOCATION,GPS,"",1);
+					sendMsg(PUT_LOCATION,GPS,"-",1);
 					sleep(1);
 					break;
 				}
@@ -298,7 +426,7 @@ void loadingGpsData(){
 			if(difftime(fin,inicio) > 30.0){
 				if(difftime(fin,inicio) > diff){
 
-					sprintf(msg,"%s","Revisa la conexi�n del GPS, no se ha podido leer el dispositivo UART en mas 30 segundos de ejecuci�n.");
+					sprintf(msg,"%s","Revisa la conexi?n del GPS, no se ha podido leer el dispositivo UART en mas 30 segundos de ejecuci?n.");
 					gpsJson(ERROR_STATUS_COMPONENT,"Venus GPS logger","115200","GGA - RMC",msg);
 
 					sendMsg(ALERTS_ERROR,GPS,msg,1);
@@ -331,7 +459,7 @@ void checkingPPS(){
 			fin = time(NULL);
 			if(difftime(fin,inicio) > 30.0){
 				if(difftime(fin,inicio) > diff){
-					sprintf(msg,"%s","Verifica la conexi�n de la se�al PPS, no se ha podido capturar en mas 30 segundos de ejecuci�n.");
+					sprintf(msg,"%s","Verifica la conexi?n de la se?al PPS, no se ha podido capturar en mas 30 segundos de ejecuci?n.");
 					sendMsg(ALERTS_ERROR,GPS,msg,1);
 					gpsJson(ERROR_STATUS_COMPONENT,"Venus GPS logger","115200","GGA - RMC",msg);
 					sleep(1);
@@ -350,10 +478,15 @@ void sincronizarRtc(){
 	char timeBuf[12] = {0}, dateBuf[12] = {0};
 
 	int count = 0;
-	int i = 0;
+
+	printf("limpiando\n");
+	clearUartBuffer();
+	printf("termino limpieza\n");
 	while(1){
 		if(getValue(&gpio26_PPS) == HIGH){
 			res = readUART(buf);
+			//printBuffer(res,buf);
+
 			if(res != -1){
 				if(isRmcStatusOk(buf) == 1){
 
@@ -363,16 +496,9 @@ void sincronizarRtc(){
 					getDateGps(dateBuf,buf); // configurando fecha
 					setDateRtc(dateBuf);
 
-					while(i<12){
-						timeBuf[i] = 0;
-						dateBuf[i] = 0;
-						i++;
-					}
-
 					if(count > 4){
 						break;
 					}
-
 					count++;
 				}
 			}
@@ -416,12 +542,12 @@ void checkingSYNC(){
 					printf("fecha es : %s\n", fecha);
 
 					rtcJson(CORRECT_STATUS_COMPONENT,"DS3231",fecha,"");
-					sendMsg(PUT_RTC_DATE,RTC,"",1);
+					sendMsg(PUT_RTC_DATE,RTC,"-",1);
 					sleep(1);
 					break;
 				}
 				else{
-					sprintf(msg,"%s","No se ha podido leer el dispositivo I2C, revisa la conexi�n del RTC.");
+					sprintf(msg,"%s","No se ha podido leer el dispositivo I2C, revisa la conexi?n del RTC.");
 					rtcJson(ERROR_STATUS_COMPONENT,"DS3231","",msg);
 					sendMsg(ALERTS_ERROR,RTC,msg,1);
 					sleep(1);
@@ -434,7 +560,7 @@ void checkingSYNC(){
 			fin = time(NULL);
 			if(difftime(fin,inicio) > 20.0){
 				if(difftime(fin,inicio) > diff){
-					sprintf(msg,"%s","Verifica la conexi�n de SQW (pin de SYNC) del RTC, su lectura ha demorado demasiado.");
+					sprintf(msg,"%s","Verifica la conexi?n de SQW (pin de SYNC) del RTC, su lectura ha demorado demasiado.");
 					rtcJson(ERROR_STATUS_COMPONENT,"DS3231","",msg);
 					sendMsg(ALERTS_ERROR,RTC,msg,1);
 					sleep(1);
@@ -446,7 +572,6 @@ void checkingSYNC(){
 
 }
 
-
 void readAndSaveData(){
 
 	char buf[255] = {0};
@@ -455,11 +580,10 @@ void readAndSaveData(){
 	int gps = 0;
 	int isData = 0;
 
+	int isGPS = 1;
+
 	int sendNotiPPS = 1;
 	int sendNotiSYNC = 1;
-
-	int nsocket = -1;
-	char bufSocket[255] = {0};
 
 	//uint64_t diff;
 	//struct timespec start, end;
@@ -467,33 +591,32 @@ void readAndSaveData(){
 	time_t inicio,fin;
 	double count_PPS = 0.0;
 
+
+	printf("limpiando\n");
+	clearUartBuffer();
+	printf("termino limpieza\n");
+
 	inicio = time(NULL);
-	int isGPS = 1;
+
 	while(1){
 
 		if(getValue(&gpio26_PPS) == HIGH){
 			inicio = time(NULL);
-			//clock_gettime(CLOCK_MONOTONIC, &start);
-
-			printf("\n ----- Senial pps ------- \n");
-			clearBuffer(buf,255);
+			//printf("\n ----- Senial pps ------- \n");
+			//clearBuffer(buf,255);
 			gps = readUART(buf);
+			//printBuffer(gps,buf);
 			if(gps != -1){
 				while(gps != -1){
 					flag = 0;
-					//printBuffer(gps,buf);
+
 					if(isRMC(buf) == 1) {
-						clearBuffer(bufTime,15);
-						clearBuffer(bufDate,15);
-						clearBuffer(bufLat,15);
 
 						getTimeGps(bufTime,buf);
 						getDateGps(bufDate,buf);
 
 						isData = getLat(bufLat,buf);
-						break;
-						//bits = getLat(data.lat,buffer);
-						//bits = getLng(data.lng,buffer);
+						//printf("Tiempo: %s - Fecha: %s - Latitud %s\n",bufTime,bufDate,bufLat );
 					}
 					clearBuffer(buf,255);
 					gps = readUART(buf);
@@ -522,21 +645,14 @@ void readAndSaveData(){
 					readWithRTC(&sendNotiSYNC);
 				}
 			}
-
-			//clock_gettime(CLOCK_MONOTONIC, &end);
-			//diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
-			//printf("Tiempo nanosegundos = %llu ns\n", (long long unsigned int) diff);
-			//printf("Tiempo milisegundos = %llu ms\n", (long long unsigned int) diff/1000000);
 		}
 		else{
 			fin = time(NULL);
 			count_PPS = difftime(fin,inicio);
-
 			if(flag == 1 || count_PPS > 2.0){
-			//if(flag == 1){
 				if(getValue(&gpio68_SYNC) == LOW){
 					//clock_gettime(CLOCK_MONOTONIC, &start);
-					printf("Low pps.\n");
+					//printf("Low pps.\n");
 					sendNotiPPS = 1;
 					readWithRTC(&sendNotiSYNC);
 					//clock_gettime(CLOCK_MONOTONIC, &end);
@@ -551,7 +667,7 @@ void readAndSaveData(){
 
 void clearBuffer(char * buffer, int ln){
 	int i = 0;
-	while(i < ln){
+	while(i != ln){
 		buffer[i] = 0;
 		i++;
 	}
@@ -587,17 +703,13 @@ int readAnalogInputsAndSaveData(char * date, char * time, int isGPS){
 	char recvY[6] = {0x00,};
 	char recvZ[6] = {0x00,};
 
-    float adc_countX = 0;
-    float adc_countY = 0;
-    float adc_countZ = 0;
-
 	float dataX[MAX_SPS] = {0};
 	float dataY[MAX_SPS] = {0};
 	float dataZ[MAX_SPS] = {0};
 
-	float samplesX[SPS] = {0};
-	float samplesY[SPS] = {0};
-	float samplesZ[SPS] = {0};
+	float samplesX[MAX_SPS] = {0};
+	float samplesY[MAX_SPS] = {0};
+	float samplesZ[MAX_SPS] = {0};
 
 	int factor =  MAX_SPS/SPS;
 
@@ -605,55 +717,92 @@ int readAnalogInputsAndSaveData(char * date, char * time, int isGPS){
 	//FACTOR_SPS_100 = 4
 	// FACTOR_SPS_50  = 8
 
-	createDirRtc(currentDirectoryX, axisX, date, time, isGPS,0);
-	createDirRtc(currentDirectoryY, axisY, date, time, isGPS,0);
-	createDirRtc(currentDirectoryZ, axisZ, date, time, isGPS,1);
+	createDirRtc(currentDirectoryX, AXI_X, date, time, isGPS,0);
+	createDirRtc(currentDirectoryY, AXI_Y, date, time, isGPS,0);
+	createDirRtc(currentDirectoryZ, AXI_Z, date, time, isGPS,1);
 
 	int count = 0;
-
-	printf("Capturando datos ADC\n");
-	while (count<MAX_SPS){
-		//printf("inicio count %d\n", count);
+	/*double voltajeX = 0;
+	double voltajeY = 0;
+	double voltajeZ = 0;*/
+	//printf("Capturando datos ADC\n");
+	while (count != MAX_SPS){
 
 		readAIN2_3(recvX);
 		readAIN4_5(recvY);
 		readAIN6_7(recvZ);
-		//printf("\n");
 
-		adc_countX = (float) (((unsigned long)recvX[1]<<24)|((unsigned long)recvX[2]<<16)|(recvX[3]<<8)|recvX[4]);
-		adc_countY = (float) (((unsigned long)recvY[1]<<24)|((unsigned long)recvY[2]<<16)|(recvY[3]<<8)|recvY[4]);
-		adc_countZ = (float) (((unsigned long)recvZ[1]<<24)|((unsigned long)recvZ[2]<<16)|(recvZ[3]<<8)|recvZ[4]);
+		dataX[count] = (float) (((unsigned long)recvX[1]<<24)|((unsigned long)recvX[2]<<16)|(recvX[3]<<8)|recvX[4]);
+		dataY[count] = (float) (((unsigned long)recvY[1]<<24)|((unsigned long)recvY[2]<<16)|(recvY[3]<<8)|recvY[4]);
+		dataZ[count] = (float) (((unsigned long)recvZ[1]<<24)|((unsigned long)recvZ[2]<<16)|(recvZ[3]<<8)|recvZ[4]);
 
-		dataX[count] = adc_countX;
-		dataY[count] = adc_countY;
-		dataZ[count] = adc_countZ;
-
-		/*xx = getVoltage(recvX);
-		yy = getVoltage(recvY);
-		zz = getVoltage(recvZ);*/
-
-		//printf("Counter: %d | X: %lf | Y:%lf | Z: %lf\n",count, adc_countX,adc_countY,adc_countZ);
-
+		/*voltajeX = getVoltage(recvX,1.8);
+		voltajeY = getVoltage(recvY,1.8);
+		voltajeZ = getVoltage(recvZ,1.8);
+		printf("Voltaje X : %lf  - Y: %lf - Z: %lf\n", voltajeX,voltajeY,voltajeZ);*/
+		//printf("Counter: %d\n",count);
 		count++;
 	}
 
-	//printf("num datos: %d\n",count);
+	if(factor != 1){
 
-	subMuestreo_xxx(dataX, samplesX, factor);
-	subMuestreo_xxx(dataY, samplesY, factor);
-	subMuestreo_xxx(dataZ, samplesZ, factor);
+		subMuestreo_xxx(dataX, samplesX, factor);
+		subMuestreo_xxx(dataY, samplesY, factor);
+		subMuestreo_xxx(dataZ, samplesZ, factor);
 
-	strDepValues.npts = strDepValues.npts + strDepValues.dataNumber;
+		if(flagEvent == 1){
+			sta_lta(&eventX,samplesX, AXI_X, date, time,isGPS);
+			sta_lta(&eventY,samplesY, AXI_Y, date, time,isGPS);
+			sta_lta(&eventZ,samplesZ, AXI_Z, date, time,isGPS);
 
-	writeSac(strDepValues.npts,strDepValues.dataNumber,samplesX,strDepValues.dt,axisX,currentDirectoryX);
-	writeSac(strDepValues.npts,strDepValues.dataNumber,samplesY,strDepValues.dt,axisY,currentDirectoryY);
-	writeSac(strDepValues.npts,strDepValues.dataNumber,samplesZ,strDepValues.dt,axisZ,currentDirectoryZ);
 
-	printf("Termino camptura de datos ADC\n");
+			if(eventX.isPendingSaveEvent == 1){
+				createEventFile(&eventX);
+			}
+			if(eventY.isPendingSaveEvent == 1){
+				createEventFile(&eventY);
+			}
+			if(eventZ.isPendingSaveEvent == 1){
+				createEventFile(&eventZ);
+			}
+		}
 
-	sendSamples(samplesX,samplesY,samplesZ);
 
-	//fclose(sampleFile);
+		strDepValues.npts = strDepValues.npts + strDepValues.dataNumber;
+		writeSac(&strFullDate,&strDepValues,strDepValues.npts,strDepValues.dataNumber,samplesX,strDepValues.dt,AXI_X,currentDirectoryX);
+		writeSac(&strFullDate,&strDepValues,strDepValues.npts,strDepValues.dataNumber,samplesY,strDepValues.dt,AXI_Y,currentDirectoryY);
+		writeSac(&strFullDate,&strDepValues,strDepValues.npts,strDepValues.dataNumber,samplesZ,strDepValues.dt,AXI_Z,currentDirectoryZ);
+		//printf("Termino camptura de datos ADC factor %d\n", factor);
+		sendSamples(samplesX,samplesY,samplesZ);
+	}
+	else{
+
+		if(flagEvent == 1){
+			sta_lta(&eventX,dataX, AXI_X, date, time,isGPS);
+			sta_lta(&eventY,dataY, AXI_Y, date, time,isGPS);
+			sta_lta(&eventZ,dataZ, AXI_Z, date, time,isGPS);
+
+
+			if(eventX.isPendingSaveEvent == 1){
+				createEventFile(&eventX);
+			}
+			if(eventY.isPendingSaveEvent == 1){
+				createEventFile(&eventY);
+			}
+			if(eventZ.isPendingSaveEvent == 1){
+				createEventFile(&eventZ);
+			}
+		}
+
+
+		strDepValues.npts = strDepValues.npts + strDepValues.dataNumber;
+		writeSac(&strFullDate,&strDepValues,strDepValues.npts,strDepValues.dataNumber,dataX,strDepValues.dt,AXI_X,currentDirectoryX);
+		writeSac(&strFullDate,&strDepValues,strDepValues.npts,strDepValues.dataNumber,dataY,strDepValues.dt,AXI_Y,currentDirectoryY);
+		writeSac(&strFullDate,&strDepValues,strDepValues.npts,strDepValues.dataNumber,dataZ,strDepValues.dt,AXI_Z,currentDirectoryZ);
+		//printf("Termino camptura de datos ADC factor %d\n", factor);
+		sendSamples(dataX,dataY,dataZ);
+	}
+
 	count = 0;
 	return 0;
 }
@@ -662,7 +811,6 @@ void subMuestreo_xxx(float *currentData, float *newData, int factor){
 
 	int i = 0;
 	int samples = MAX_SPS/factor;
-
 
 	while(i<samples){
 		newData[i] = currentData[i*factor];
@@ -677,36 +825,56 @@ void createDirRtc(char *dir, char *axis,char * date, char *time, int isGPS, int 
 	struct stat st = {0};
 	sprintf(fecha,"%s/%s",SAMPLES_DIR_R,date);
 
-	if (stat(SAMPLES_DIR_R, &st) == -1) {
-	    mkdir(SAMPLES_DIR_R, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-	}
-
-	if (stat(fecha, &st) == -1) {
-	    mkdir(fecha, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-	}
-
 	if(dir[0] == 0){
+
+		if (stat(SAMPLES_DIR_R, &st) == -1) {
+		    mkdir(SAMPLES_DIR_R, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+		}
+
+		if (stat(fecha, &st) == -1) {
+		    mkdir(fecha, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+		}
+
 		sprintf(dir,"%s/%s/%s_%c%c_%s.sac",SAMPLES_DIR_R,date,date,time[0],time[1],axis);
-		initDataofSamples(date,time,isGPS);
+		getSacFormatDate(&strFullDate,date,time,isGPS);
+		// se reinician el numero de muestras para que comience a contar nuevamente en el siguiente archivo
+		strDepValues.npts = 0;
+		strDepValues.dt = DT;
+		strDepValues.dataNumber = SPS;
+		/// se definene los valores de DELTA, NTPS, y dataNumber que es el numero de datos por segundo
+		// este no se incluye como tal en el archivo.
 		createFile(dir);
 
 	}
 	else if (time[2]=='0' && time[3]=='0' && time[4]=='0' && time[5]=='0'){ //Nueva Hora
+	//else if (time[4]=='0' && time[5]=='0'){ //Nueva Hora
+		if (stat(SAMPLES_DIR_R, &st) == -1) {
+		    mkdir(SAMPLES_DIR_R, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+		}
 
-		if(last == 1){
+		if (stat(fecha, &st) == -1) {
+		    mkdir(fecha, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+		}
+
+		if ( last == 1){
 			sendMsg(UPLOAD_FILES,ADC,dir,1);
 		}
 
 		sprintf(dir,"%s/%s/%s_%c%c_%s.sac",SAMPLES_DIR_R,date,date,time[0],time[1],axis);
 		//sprintf(dir,"%s/%s/%s%s_%c%c%c%c%c%c.sac",SAMPLES_DIR_R,date,axis,date,time[0],time[1],time[2],time[3],time[4],time[5]);
-		initDataofSamples(date,time,isGPS);
+		getSacFormatDate(&strFullDate,date,time,isGPS);
+
+		strDepValues.npts = 0;
+		strDepValues.dt = DT;
+		strDepValues.dataNumber = SPS;
+
 		createFile(dir);
 
 	}
 	//printf("Dir: %s\n", dir);
 }
 
-void initDataofSamples(char * date, char *time, int isGPS){
+void getSacFormatDate(fullDate * strDate,char * date, char *time, int isGPS){
 	char year[2] = {0};
 	char month[2] = {0};
 	char day[2] = {0};
@@ -743,149 +911,162 @@ void initDataofSamples(char * date, char *time, int isGPS){
 		mseg[2] = time[9];
 	}
 
-	strFullDate.year = 2000 + atoi(year);
-	strFullDate.month = atoi(month);
+	strDate->year = 2000 + atoi(year);
+	strDate->month = atoi(month);
 
-	strFullDate.day = numeroDiasPorMes[strFullDate.month - 1] + atoi(day);
+	strDate->day = numeroDiasPorMes[strDate->month - 1] + atoi(day);
 
-	strFullDate.hour = atoi(hour);
-	strFullDate.min = atoi(min);
-	strFullDate.seg = atoi(seg);
-	strFullDate.mseg = atoi(mseg);
+	strDate->hour = atoi(hour);
+	strDate->min = atoi(min);
+	strDate->seg = atoi(seg);
+	strDate->mseg = atoi(mseg);
 
-	// se reinician el numero de muestras para que comience a contar nuevamente en el siguiente archivo
-	strDepValues.npts = 0;
-	strDepValues.dt = DT;
-	strDepValues.dataNumber = SPS;
-	/// se definene los valores de DELTA, NTPS, y dataNumber que es el numero de datos por segundo
-	// este no se incluye como tal en el archivo.
 }
 
-void writeSac(int npts, int dataNumber, float *arr, float dt, char *axis ,char *filename)
+void writeSac(fullDate * strFullDa, depValues * strDepVal, int npts, int dataNumber, float *arr, float dt, char *axis ,char *filename)
 {
-        /* create the SAC file
-           instead of using the wsac1 I will use the lower level
-           routines to provide more control on the output */
-        int nerr;
-        float b, e;
-        //float depmax, depmin, depmen;
-        /* get the extrema of the trace */
-       // printf("antes de scmxmn\n");
-        		//scmxmn(arr,npts,&depmax,&depmin,&depmen);
-                scmxmn(arr,dataNumber,&strDepValues.depmax,&strDepValues.depmin,&strDepValues.depmen);
-        //printf("despues de scmxmn y antes de newhdr\n");
-        /* create a new header for the new SAC file */
-                newhdr();
-        //printf("despues de newhdr y antes de los set \n");
-        /* set some header values */
-                setfhv("DEPMAX", strDepValues.depmax, &nerr);
-                setfhv("DEPMIN", strDepValues.depmin, &nerr);
-                setfhv("DEPMEN", strDepValues.depmen, &nerr);
-                setnhv("NPTS    ",npts,&nerr);
-                setfhv("DELTA   ",dt  ,&nerr);
-                b = 0;
-                setfhv("B       ",b  ,&nerr);
-                setihv("IFTYPE  ","ITIME   ",&nerr);
-                e = b + (npts -1 )*dt;
-                setfhv("E       ",e     ,&nerr);
-                setlhv("LEVEN   ",1,&nerr);
-                setlhv("LOVROK  ",1,&nerr);
-                setlhv("LCALDA  ",1,&nerr);
-        /* put is a default time for the plot */
-                setnhv("NZYEAR", strFullDate.year, &nerr);
-                setnhv("NZJDAY", strFullDate.day, &nerr);
-                setnhv("NZHOUR", strFullDate.hour, &nerr);
-                setnhv("NZMIN" , strFullDate.min, &nerr);
-                setnhv("NZSEC" , strFullDate.seg, &nerr);
-                setnhv("NZMSEC", strFullDate.mseg, &nerr);
+	int nerr;
+    float b = 0, e = 0;
 
-                setkhv("KNETWK", "MEC",&nerr);
-                setkhv("KSTNM", "POP",&nerr);
-                setkhv("KCMPNM", axis,&nerr);
-        /* output the SAC file */
-         //printf("despues de los set y antes de updateHeaders \n");
-                updateHeaders(filename);
-         //printf("despues de updateHeaders y antes de updateData \n");
-        		updateData(filename,dataNumber,arr);
-                //updateData(filename,npts,arr);
-                //bwsac(npts,filename,arr);
-           //     printf("metodo\n");
+    e = b + (npts -1 )*dt;
+    /* get the extrema of the trace */
+
+    scmxmn(arr,dataNumber,&strDepVal->depmax,&strDepVal->depmin,&strDepVal->depmen);
+
+    /* create a new header for the new SAC file */
+    newhdr();
+
+    /* set some header values */
+    setfhv("DEPMAX", strDepVal->depmax, &nerr);
+    setfhv("DEPMIN", strDepVal->depmin, &nerr);
+    setfhv("DEPMEN", strDepVal->depmen, &nerr);
+    setnhv("NPTS    ",npts,&nerr);
+    setfhv("DELTA   ",dt  ,&nerr);
+
+    setfhv("B       ",b  ,&nerr);
+    setihv("IFTYPE  ","ITIME   ",&nerr);
+    setfhv("E       ",e     ,&nerr);
+    setlhv("LEVEN   ",1,&nerr);
+    setlhv("LOVROK  ",1,&nerr);
+    setlhv("LCALDA  ",1,&nerr);
+
+    /* put is a default time for the plot */
+    setnhv("NZYEAR", strFullDa->year, &nerr);
+    setnhv("NZJDAY", strFullDa->day, &nerr);
+    setnhv("NZHOUR", strFullDa->hour, &nerr);
+    setnhv("NZMIN" , strFullDa->min, &nerr);
+    setnhv("NZSEC" , strFullDa->seg, &nerr);
+    setnhv("NZMSEC", strFullDa->mseg, &nerr);
+
+    setkhv("KNETWK", "MEC",&nerr);
+    setkhv("KSTNM", "POP",&nerr);
+    setkhv("KCMPNM", axis,&nerr);
+    updateHeaders(filename);
+    updateData(filename,dataNumber,arr);
+
 }
 
+////////////////////////////////////---------EVENTOS----------////////////////////////////////////
 
-/// ------------------ *** metodos de pruebs *** ------------------------- ////
+void createEventFile(eventData * event){
 
-void read_prueba_solo_pps(){
+	fullDate fullDataEvent;
+	depValues strDepValuesEvents;
+	char dir[100] = {0};
+	char fecha[100] = {0};
+	struct stat st = {0};
+	sprintf(fecha,"%s/%s",EVENTS_DIR_R,event->date);
 
-	float dataX[1000] = {0};
-	float dataY[1000] = {0};
-	float dataZ[1000] = {0};
-
-	int num_data = 0;
-	int reading_ADC = 0;
-
-	//int iii = 0;
-	int gggg = 0;
-	while(1){
-
-		if(getValue(&gpio26_PPS) == HIGH){
-		//if(getValue(&gpio68_SYNC) == LOW){
-			gggg = gggg + 1;
-			printf("\nggggg es  %d \n", gggg);
-			printf("\n ----- Senial pps ------- \n");
-			//writeI2C(0x0F,0x88);
-			reading_ADC = 1;
-
-			/*iii = 0;
-			while(iii<num_data){
-				printf("Counter: %d | X: %lf | Y:%lf | Z: %lf\n",iii, dataX[iii],dataY[iii],dataZ[iii]);
-				iii = iii + 1;
-			}*/
-
-			printf("Numero de datos: %d.\n", num_data);
-
-			num_data = 0;
-
-			printf("Comenzo Lectura pruebas.\n");
-			readDataPrueba(&dataX[num_data],&dataY[num_data],&dataZ[num_data]);
-			printf("Counter: %d | X: %lf | Y:%lf | Z: %lf\n",num_data, dataX[num_data],dataY[num_data],dataZ[num_data]);
-			num_data = num_data + 1;
-
-		}
-		else{
-			//gggg = 0;
-			//printf("low\n");
-			if(reading_ADC == 1){
-				readDataPrueba(&dataX[num_data],&dataY[num_data],&dataZ[num_data]);
-				//printf("Counter: %d | X: %lf | Y:%lf | Z: %lf\n",num_data, dataX[num_data],dataY[num_data],dataZ[num_data]);
-				//printf("Counter: %d\n",num_data);
-				num_data = num_data + 1;
-			}
-		}
+	if (stat(EVENTS_DIR_R, &st) == -1) {
+	    mkdir(EVENTS_DIR_R, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 	}
 
+	if (stat(fecha, &st) == -1) {
+	    mkdir(fecha, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+	}
+
+	getSacFormatDate(&fullDataEvent,event->date,event->time,event->isGPS);
+
+	sprintf(dir,"%s/%s/%s_%c%c%c%c%c%c_%s.sac",EVENTS_DIR_R,event->date,event->date,event->time[0],event->time[1],event->time[2],event->time[3],event->time[4],event->time[5],event->axis);
+
+	printf("Escribiendo evento %s\n", dir);
+
+	createFile(dir);
+
+	strDepValuesEvents.npts = strDepValuesEvents.npts + event->countPreEvent; // Se agrega las muestras del preEvento
+
+	writeSac(&fullDataEvent,&strDepValuesEvents, strDepValuesEvents.npts, event->countPreEvent, event->preEvent, DT,event->axis,dir);
+
+	strDepValuesEvents.npts = strDepValuesEvents.npts + event->countEventSamples; // Se agrega las muestras del evento
+
+	writeSac(&fullDataEvent,&strDepValuesEvents, strDepValuesEvents.npts, event->countEventSamples, event->eventSamples, DT,event->axis,dir);
+
+	strDepValuesEvents.npts = strDepValuesEvents.npts + event->countPostEvent; // se agrega las muestras del postEvento
+
+	writeSac(&fullDataEvent,&strDepValuesEvents, strDepValuesEvents.npts, event->countPostEvent, event->postEvent, DT,event->axis,dir);
+
+	//AL GUARDAR UN EVENTO SE TIENE QUE LIMPIAR EL REGISTRO DE MUESTRAS.
+
+	clearFloatBuffer(event->eventSamples, event->countEventSamples);
+	clearFloatBuffer(event->postEvent, event->countPostEvent);
+	event->countEventSamples = 0;
+	event->isPendingSaveEvent = 0;
+
+	sendMsg(UPLOAD_FILES,EVENT,dir,1);
 }
 
-void readDataPrueba(float * dataX, float * dataY, float * dataZ){
+void clearFloatBuffer(float * buffer, int ln){
+	int i = 0;
+	while(i != ln){
+		buffer[i] = 0;
+		i++;
+	}
+}
 
-	char recvX[6] = {0x00,};
-	char recvY[6] = {0x00,};
-	char recvZ[6] = {0x00,};
+/*
+void writeEventFile(fullDate * fullDataEvent, int npts, float *arr, float dt, char *axis, char *filename){
 
-    float adc_countX = 0;
-    float adc_countY = 0;
-    float adc_countZ = 0;
+        int nerr;
+        float b = 0, e = 0, depmax = 0.0, depmin = 0.0, depmen = 0.0;
 
-	readAIN2_3(recvX);
-	readAIN4_5(recvY);
-	readAIN6_7(recvZ);
+        e = b + (npts -1 )*dt;
+        // get the extrema of the trace
 
-	adc_countX = (float) (((unsigned long)recvX[1]<<24)|((unsigned long)recvX[2]<<16)|(recvX[3]<<8)|recvX[4]);
-	adc_countY = (float) (((unsigned long)recvY[1]<<24)|((unsigned long)recvY[2]<<16)|(recvY[3]<<8)|recvY[4]);
-	adc_countZ = (float) (((unsigned long)recvZ[1]<<24)|((unsigned long)recvZ[2]<<16)|(recvZ[3]<<8)|recvZ[4]);
+        //scmxmn(arr,dataNumber,&strDepValues.depmax,&strDepValues.depmin,&strDepValues.depmen);
+        scmxmn(arr,npts,&depmax,&depmin,&depmen);
+        // create a new header for the new SAC file
+        newhdr();
 
-	*dataX = adc_countX;
-	*dataY = adc_countY;
-	*dataZ = adc_countZ;
+        // set some header values
+        setfhv("DEPMAX", depmax, &nerr);
+        setfhv("DEPMIN", depmin, &nerr);
+        setfhv("DEPMEN", depmen, &nerr);
+        setnhv("NPTS    ",npts,&nerr);
+        setfhv("DELTA   ",dt  ,&nerr);
+
+        setfhv("B       ",b  ,&nerr);
+        setihv("IFTYPE  ","ITIME   ",&nerr);
+
+        setfhv("E       ",e     ,&nerr);
+        setlhv("LEVEN   ",1,&nerr);
+        setlhv("LOVROK  ",1,&nerr);
+        setlhv("LCALDA  ",1,&nerr);
+
+        // put is a default time for the plot
+
+        setnhv("NZYEAR", fullDataEvent->year, &nerr);
+        setnhv("NZJDAY", fullDataEvent->day, &nerr);
+     	setnhv("NZHOUR", fullDataEvent->hour, &nerr);
+     	setnhv("NZMIN" , fullDataEvent->min, &nerr);
+     	setnhv("NZSEC" , fullDataEvent->seg, &nerr);
+    	setnhv("NZMSEC", fullDataEvent->mseg, &nerr);
+
+    	setkhv("KNETWK", "MEC",&nerr);
+    	setkhv("KSTNM", "POP",&nerr);
+    	setkhv("KCMPNM", axis,&nerr);
+    	bwsac(npts,filename,arr);
 
 }
+*/
+
+
