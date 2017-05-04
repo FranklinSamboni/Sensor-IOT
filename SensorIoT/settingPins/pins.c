@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "../libs/GPIO/gpio.h"
+#include "../Sensor/libs/GPIO/gpio.h"
 
 gpioParams gpio68_SYNC; // para RTC
 gpioParams gpio26_PPS; // para GPS
@@ -21,6 +21,9 @@ gpioParams led81; // led5 - out
 gpioParams led73; // led1 - out
 gpioParams led70; // led3 - out
 gpioParams led71; // led2 - out
+
+gpioParams gpio65_ST1_ACC; // st1 acelerometro
+gpioParams gpio27_ST2_ACC; // st2 acelerometro
 
 int main(int argc, char *argv[])
 {
@@ -62,6 +65,18 @@ int main(int argc, char *argv[])
 	initGPIO(71, &led71);
 	setDirection(OUTPUT, &led71);
 	setValue(HIGH,&led71);
+
+
+	///// ACELEROMETRO
+
+	initGPIO(65, &gpio65_ST1_ACC);  // ST1 EN ALTO INDICA MODO TEST
+	setDirection(OUTPUT, &gpio65_ST1_ACC);
+
+	initGPIO(27, &gpio27_ST2_ACC);
+	setDirection(OUTPUT, &gpio27_ST2_ACC); // ST2 ALTO APLICA FUERZA AL ACCELEROMETRO.
+
+	setValue(LOW,&gpio65_ST1_ACC);
+	setValue(LOW,&gpio27_ST2_ACC);
 
 	return 0;
 }

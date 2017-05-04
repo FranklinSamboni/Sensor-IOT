@@ -86,9 +86,13 @@ eventData eventZ;
 gpioParams gpio68_SYNC; // para RTC
 gpioParams gpio26_PPS; // para GPS
 
+gpioParams gpio65_ST1_ACC; // st1 acelerometro
+gpioParams gpio27_ST2_ACC; // st2 acelerometro
+
 void printfOpt();
 void openDevices();
 void closeDevices();
+void testAcelerometer();
 void loadingGpsData();
 void checkingPPS();
 void sincronizarRtc();
@@ -221,6 +225,8 @@ int main(int argc, char *argv[]){
 	settingPins(); // Configurar pines de control del ADC
 	printf("se llamo a settingADC\n");
 	settingADC();
+	printf("se llamo a testAcelerometer\n");
+	testAcelerometer();
 
 	printf("se llamo a loadingGpsData\n");
 	loadingGpsData();
@@ -366,6 +372,27 @@ void sendSamples(float * samplesX, float * samplesY, float * samplesZ){
 	writeSOCKET(json_object_to_json_string(jobj));
 	writeSOCKET("\r\n");
 
+}
+
+void testAcelerometer(){
+	initGPIO(65, &gpio65_ST1_ACC);  // ST1 EN ALTO INDICA MODO TEST
+	setDirection(OUTPUT, &gpio65_ST1_ACC);
+
+	initGPIO(27, &gpio27_ST2_ACC);
+	setDirection(OUTPUT, &gpio27_ST2_ACC); // ST2 ALTO APLICA FUERZA AL ACCELEROMETRO.
+
+	setValue(LOW,&gpio65_ST1_ACC);
+	setValue(LOW,&gpio27_ST2_ACC);
+	sleep(1);
+
+	setValue(HIGH,&gpio65_ST1_ACC); // MODO TEST
+	sleep(1);
+
+	setValue(HIGH,&gpio27_ST2_ACC); // APLICA FUERZA
+	sleep(2);
+
+	setValue(LOW,&gpio65_ST1_ACC);
+	setValue(LOW,&gpio27_ST2_ACC); // TERMINA
 }
 
 void loadingGpsData(){
@@ -738,8 +765,9 @@ int readAnalogInputsAndSaveData(char * date, char * time, int isGPS){
 
 		/*voltajeX = getVoltage(recvX,1.8);
 		voltajeY = getVoltage(recvY,1.8);
-		voltajeZ = getVoltage(recvZ,1.8);
-		printf("Voltaje X : %lf  - Y: %lf - Z: %lf\n", voltajeX,voltajeY,voltajeZ);*/
+		voltajeZ = getVoltage(recvZ,1.8);*/
+		//printf("Voltaje X : %lf  - Y: %lf - Z: %lf\n", dataX[count],dataY[count],dataZ[count]);
+		//printf("Voltaje X : %lf  - Y: %lf - Z: %lf\n", voltajeX,voltajeY,voltajeZ);
 		//printf("Counter: %d\n",count);
 		count++;
 	}
@@ -766,7 +794,6 @@ int readAnalogInputsAndSaveData(char * date, char * time, int isGPS){
 				createEventFile(&eventZ);
 			}
 		}
-
 
 		strDepValues.npts = strDepValues.npts + strDepValues.dataNumber;
 		writeSac(&strFullDate,&strDepValues,strDepValues.npts,strDepValues.dataNumber,samplesX,strDepValues.dt,AXI_X,currentDirectoryX);
@@ -933,6 +960,7 @@ void writeSac(fullDate * strFullDa, depValues * strDepVal, int npts, int dataNum
 
     scmxmn(arr,dataNumber,&strDepVal->depmax,&strDepVal->depmin,&strDepVal->depmen);
 
+    //printf("npts : %d, dt : %f, depmax : %f, depmin : %f, depmen : %f\n", npts,dt, strDepVal->depmax, strDepVal->depmin, strDepVal->depmen);
     /* create a new header for the new SAC file */
     newhdr();
 
@@ -989,9 +1017,14 @@ void createEventFile(eventData * event){
 
 	sprintf(dir,"%s/%s/%s_%c%c%c%c%c%c_%s.sac",EVENTS_DIR_R,event->date,event->date,event->time[0],event->time[1],event->time[2],event->time[3],event->time[4],event->time[5],event->axis);
 
-	printf("Escribiendo evento %s\n", dir);
+	//printf("Escribiendo evento %s\n", dir);
 
 	createFile(dir);
+
+	strDepValuesEvents.npts = 0;
+	strDepValuesEvents.depmax = 0.0;
+	strDepValuesEvents.depmin = 0.0;
+	strDepValuesEvents.depmen = 0.0;
 
 	strDepValuesEvents.npts = strDepValuesEvents.npts + event->countPreEvent; // Se agrega las muestras del preEvento
 
@@ -1007,12 +1040,35 @@ void createEventFile(eventData * event){
 
 	//AL GUARDAR UN EVENTO SE TIENE QUE LIMPIAR EL REGISTRO DE MUESTRAS.
 
+	if( event->countPostEvent >= event->countPreEvent ){
+		addSamplesPreEvent(event,event->postEvent,event->countPreEvent ,(event->countPostEvent - event->countPreEvent));
+	}
+	else{
+		//addSamplesPreEvent(eventData *  event, float * samples, int samplesNumber , int firstPosition)
+		if( event->countEventSamples >= (event->countPreEvent - event->countPostEvent)){
+			addSamplesPreEvent(event, event->eventSamples,(event->countPreEvent - event->countPostEvent) , (event->countEventSamples - (event->countPreEvent - event->countPostEvent)));
+		}
+		else{
+			addSamplesPreEvent(event,event->eventSamples,event->countEventSamples, 0);
+		}
+		addSamplesPreEvent(event,event->postEvent,event->countPostEvent, 0);
+	}
+
+	int sobrante = event->countEventSamples % SPS;
+	//printf("sobrantes es : %d\n", sobrante);
+	addSamplesPreEvent(event,event->tempData,sobrante, (event->countTempData - sobrante));
+
+	//printfBuff(event->tempData,(event->countTempData + 10), "des guardar Buf tempData + 10 ");
+	//printfBuff(event->preEvent,(event->countPreEvent + 10), "des guardar Buf pre - Event + 10 ");
+
 	clearFloatBuffer(event->eventSamples, event->countEventSamples);
 	clearFloatBuffer(event->postEvent, event->countPostEvent);
+	event->countPostEvent = 0;
 	event->countEventSamples = 0;
 	event->isPendingSaveEvent = 0;
 
 	sendMsg(UPLOAD_FILES,EVENT,dir,1);
+
 }
 
 void clearFloatBuffer(float * buffer, int ln){

@@ -1,1 +1,1 @@
-{"isActive": true,"sta": "0.5", "lta": "12", "thOn": "12" , "thOff": "10" , "min_seconds": "3", "pre_event": "3" ,"post_event": "3" } 
+{"isActive": true,"d_w_sta": "0.7", "d_w_lta": "7", "t_on": "12.2" , "t_off": "10.2" , "d_min": "4", "d_pre": "2" ,"d_pos": "2" } 
